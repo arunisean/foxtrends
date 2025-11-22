@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FoxTrends - 多垂直社区需求追踪系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .status {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-label {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .status-value {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+        
+        .status-running {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-stopped {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-starting {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .message.show {
+            display: block;
+        }
+        
+        .features {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e0e0e0;
+        }
+        
+        .features h2 {
+            color: #667eea;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+        
+        .features ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .features li {
+            padding: 10px 0;
+            padding-left: 30px;
+            position: relative;
+        }
+        
+        .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦊 FoxTrends</h1>
+        <p class="subtitle">多垂直社区需求追踪系统</p>
+        
+        <div class="status">
+            <div class="status-item">
+                <span class="status-label">系统状态</span>
+                <span class="status-value status-stopped" id="system-status">未启动</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">ForumEngine</span>
+                <span class="status-value status-stopped" id="forum-status">停止</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">数据库</span>
+                <span class="status-value status-stopped" id="db-status">未连接</span>
+            </div>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn-primary" id="start-btn" onclick="startSystem()">启动系统</button>
+            <button class="btn-secondary" id="config-btn" onclick="openConfig()">配置</button>
+            <button class="btn-success" id="dashboard-btn" onclick="openDashboard()" disabled>打开Dashboard</button>
+        </div>
+        
+        <div class="message" id="message"></div>
+        
+        <div class="features">
+            <h2>核心功能</h2>
+            <ul>
+                <li>多垂直社区监控（Reddit、GitHub、HackerNews）</li>
+                <li>智能需求信号提取和分类</li>
+                <li>趋势分析和预测</li>
+                <li>多Agent协作分析</li>
+                <li>可视化Dashboard</li>
+                <li>自动报告生成</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        
+        socket.on('connect', function() {
+            console.log('Connected to server');
+            updateStatus();
+        });
+        
+        socket.on('status_update', function(data) {
+            console.log('Status update:', data);
+            updateStatusDisplay(data);
+        });
+        
+        function updateStatus() {
+            fetch('/api/system/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const systemStatus = document.getElementById('system-status');
+                        if (data.started) {
+                            systemStatus.textContent = '运行中';
+                            systemStatus.className = 'status-value status-running';
+                            document.getElementById('start-btn').disabled = true;
+                            document.getElementById('dashboard-btn').disabled = false;
+                        } else if (data.starting) {
+                            systemStatus.textContent = '启动中';
+                            systemStatus.className = 'status-value status-starting';
+                            document.getElementById('start-btn').disabled = true;
+                        } else {
+                            systemStatus.textContent = '未启动';
+                            systemStatus.className = 'status-value status-stopped';
+                            document.getElementById('start-btn').disabled = false;
+                            document.getElementById('dashboard-btn').disabled = true;
+                        }
+                    }
+                });
+            
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    updateStatusDisplay(data);
+                });
+        }
+        
+        function updateStatusDisplay(data) {
+            if (data.forum) {
+                const forumStatus = document.getElementById('forum-status');
+                if (data.forum.status === 'running') {
+                    forumStatus.textContent = '运行中';
+                    forumStatus.className = 'status-value status-running';
+                } else {
+                    forumStatus.textContent = '停止';
+                    forumStatus.className = 'status-value status-stopped';
+                }
+            }
+        }
+        
+        function startSystem() {
+            showMessage('正在启动系统...', 'success');
+            document.getElementById('start-btn').disabled = true;
+            
+            fetch('/api/system/start', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage('系统启动成功！', 'success');
+                    updateStatus();
+                } else {
+                    showMessage('系统启动失败: ' + data.message, 'error');
+                    document.getElementById('start-btn').disabled = false;
+                }
+            })
+            .catch(error => {
+                showMessage('启动请求失败: ' + error, 'error');
+                document.getElementById('start-btn').disabled = false;
+            });
+        }
+        
+        function openConfig() {
+            showMessage('配置功能开发中...', 'success');
+        }
+        
+        function openDashboard() {
+            window.location.href = '/dashboard';
+        }
+        
+        function showMessage(text, type) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = 'message ' + type + ' show';
+            
+            setTimeout(() => {
+                message.classList.remove('show');
+            }, 5000);
+        }
+        
+        // 定期更新状态
+        setInterval(updateStatus, 5000);
+        
+        // 初始加载
+        updateStatus();
+    </script>
+</body>
+</html>

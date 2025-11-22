@@ -94,7 +94,7 @@ class TestConfigSystem:
         # 验证路径计算逻辑
         assert PROJECT_ROOT.exists()
         assert isinstance(CWD_ENV, Path)
-        assert isinstance(ENV_FILE, str)
+        assert isinstance(ENV_FILE, Path)
     
     def test_database_config_compatibility(self):
         """验证数据库配置兼容性（支持 PostgreSQL 和 MySQL）"""

@@ -1,6 +1,7 @@
-# -*- coding: utf-8 -*-
 """
 ReportEngine - 报告生成引擎
-
-复用自 BettaFish 的 ReportEngine，负责生成需求分析报告。
+适配FoxTrends需求分析场景
 """
+
+# 占位符 - 待后续实现
+__version__ = "0.1.0"

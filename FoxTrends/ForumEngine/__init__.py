@@ -1,6 +1,8 @@
-# -*- coding: utf-8 -*-
 """
-ForumEngine - 论坛引擎
+ForumEngine - 监控和记录三个Agent的输出
+适配FoxTrends需求追踪场景
+"""
 
-复用自 BettaFish 的 ForumEngine，负责 Agent 协作、讨论管理和观点整合。
-"""
+from .monitor import LogMonitor
+
+__all__ = ['LogMonitor']

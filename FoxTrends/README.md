@@ -36,8 +36,8 @@ FoxTrends 包含以下核心组件：
 ### 环境要求
 
 - Python 3.11+
-- PostgreSQL 或 MySQL
 - UV 包管理工具
+- SQLite（默认，无需额外安装）或 PostgreSQL/MySQL（可选）
 
 ### 安装步骤
 
@@ -61,15 +61,16 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 uv sync
 ```
 
-4. 配置环境变量
+4. 配置环境变量（可选）
 ```bash
 cp .env.example .env
-# 编辑 .env 文件，填入必要的配置信息
+# 编辑 .env 文件，填入 LLM API 密钥等配置
+# 数据库默认使用 SQLite，无需额外配置
 ```
 
 5. 初始化数据库
 ```bash
-uv run python scripts/init_db.py
+uv run python database/init_database.py
 ```
 
 6. 启动服务
@@ -77,11 +78,34 @@ uv run python scripts/init_db.py
 uv run python app.py
 ```
 
+7. 访问 Dashboard
+```bash
+# 浏览器打开
+http://localhost:5000/dashboard
+```
+
 ## 配置说明
 
 详细的配置说明请参考 `.env.example` 文件。主要配置项包括：
 
-- **数据库配置**: 支持 PostgreSQL 和 MySQL
+### 数据库配置
+- **SQLite** (默认): 开箱即用，无需额外配置
+  ```env
+  DB_DIALECT=sqlite
+  DB_NAME=foxtrends.db
+  ```
+
+- **PostgreSQL/MySQL** (可选): 适用于生产环境
+  ```env
+  DB_DIALECT=postgresql  # 或 mysql
+  DB_HOST=localhost
+  DB_PORT=5432
+  DB_USER=foxtrends_user
+  DB_PASSWORD=your_password
+  DB_NAME=foxtrends
+  ```
+
+### 其他配置
 - **LLM Agent 配置**: 为每个 Agent 配置独立的 LLM API
 - **社区数据源**: Reddit、GitHub、HackerNews 等 API 配置
 - **爬取策略**: 爬取间隔、深度、数量等参数
@@ -89,10 +113,10 @@ uv run python app.py
 ## 技术栈
 
 - **后端**: Python 3.11+, Flask, SQLAlchemy
-- **数据库**: PostgreSQL / MySQL
+- **数据库**: SQLite (默认) / PostgreSQL / MySQL
 - **LLM**: OpenAI API 兼容接口
 - **爬虫**: Playwright, aiohttp, BeautifulSoup4
-- **前端**: Streamlit, Plotly
+- **前端**: Jinja2, Plotly.js
 - **包管理**: UV
 
 ## 开发指南

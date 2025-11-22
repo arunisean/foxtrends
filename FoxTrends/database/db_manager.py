@@ -128,20 +128,36 @@ class DatabaseManager:
         for col in columns:
             logger.info(f"  - {col['name']:<20} {col['type']}")
     
-    def execute_query(self, query: str, params: Optional[dict] = None):
+    def execute_query(self, query: str, params=None):
         """
         执行查询
         
         Args:
-            query: SQL 查询语句
-            params: 查询参数
+            query: SQL 查询语句（使用 ? 或 %s 占位符）
+            params: 查询参数（字典、元组或列表）
             
         Returns:
             查询结果
         """
         try:
             with self.engine.connect() as conn:
-                result = conn.execute(text(query), params or {})
+                # 如果 params 是元组或列表，转换为字典
+                if params and isinstance(params, (tuple, list)):
+                    # 将 ? 或 %s 占位符替换为命名参数
+                    param_dict = {}
+                    query_with_names = query
+                    for i, val in enumerate(params):
+                        param_name = f'param{i}'
+                        param_dict[param_name] = val
+                        # 替换 ? 或 %s 为命名参数（只替换第一个）
+                        if '?' in query_with_names:
+                            query_with_names = query_with_names.replace('?', f':{param_name}', 1)
+                        elif '%s' in query_with_names:
+                            query_with_names = query_with_names.replace('%s', f':{param_name}', 1)
+                    result = conn.execute(text(query_with_names), param_dict)
+                else:
+                    # 字典参数或无参数
+                    result = conn.execute(text(query), params or {})
                 return result.fetchall()
         except Exception as e:
             logger.error(f"查询执行失败: {e}")
@@ -158,7 +174,18 @@ def build_database_url(async_mode: bool = False) -> str:
     Returns:
         str: 数据库连接 URL
     """
-    dialect = (settings.DB_DIALECT or "postgresql").lower()
+    dialect = (settings.DB_DIALECT or "sqlite").lower()
+    
+    # SQLite 配置
+    if dialect == "sqlite":
+        db_name = settings.DB_NAME
+        # SQLite 使用相对路径或绝对路径
+        if async_mode:
+            return f"sqlite+aiosqlite:///{db_name}"
+        else:
+            return f"sqlite:///{db_name}"
+    
+    # PostgreSQL/MySQL 配置
     host = settings.DB_HOST
     port = settings.DB_PORT
     user = settings.DB_USER

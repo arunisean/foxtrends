@@ -1,6 +1,10 @@
-# -*- coding: utf-8 -*-
 """
-ContentAnalysisAgent - 内容分析 Agent
+ContentAnalysisAgent - 内容分析Agent
+改造自 BettaFish 的 MediaEngine
+专注于多模态内容分析和需求理解
+"""
 
-改造自 BettaFish 的 MediaEngine，用于社区内容多模态分析和需求分类。
-"""
+from .agent import ContentAnalysisAgent
+
+__all__ = ['ContentAnalysisAgent']
+__version__ = "0.1.0"

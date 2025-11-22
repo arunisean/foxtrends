@@ -35,7 +35,20 @@ def init_database():
     try:
         with engine.begin() as conn:
             # 创建 communities 表
-            if dialect in ("postgresql", "postgres"):
+            if dialect == "sqlite":
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS communities (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name VARCHAR(255) NOT NULL,
+                        source_type VARCHAR(50) NOT NULL,
+                        source_url TEXT,
+                        config TEXT,
+                        status VARCHAR(20) DEFAULT 'active',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+            elif dialect in ("postgresql", "postgres"):
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS communities (
                         id SERIAL PRIMARY KEY,
@@ -65,7 +78,27 @@ def init_database():
             logger.info("✓ 创建 communities 表")
             
             # 创建 demand_signals 表
-            if dialect in ("postgresql", "postgres"):
+            if dialect == "sqlite":
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS demand_signals (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        community_id INTEGER,
+                        signal_type VARCHAR(50),
+                        title TEXT NOT NULL,
+                        content TEXT,
+                        source_url TEXT,
+                        author VARCHAR(255),
+                        sentiment_score REAL,
+                        hotness_score REAL,
+                        discussion_count INTEGER DEFAULT 0,
+                        participant_count INTEGER DEFAULT 0,
+                        metadata TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        extracted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (community_id) REFERENCES communities(id)
+                    )
+                """))
+            elif dialect in ("postgresql", "postgres"):
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS demand_signals (
                         id SERIAL PRIMARY KEY,
@@ -77,6 +110,8 @@ def init_database():
                         author VARCHAR(255),
                         sentiment_score FLOAT,
                         hotness_score FLOAT,
+                        discussion_count INTEGER DEFAULT 0,
+                        participant_count INTEGER DEFAULT 0,
                         metadata JSONB,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         extracted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -94,6 +129,8 @@ def init_database():
                         author VARCHAR(255),
                         sentiment_score FLOAT,
                         hotness_score FLOAT,
+                        discussion_count INT DEFAULT 0,
+                        participant_count INT DEFAULT 0,
                         metadata JSON,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         extracted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -104,7 +141,23 @@ def init_database():
             logger.info("✓ 创建 demand_signals 表")
             
             # 创建 trend_analysis 表
-            if dialect in ("postgresql", "postgres"):
+            if dialect == "sqlite":
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS trend_analysis (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        demand_signal_id INTEGER,
+                        analysis_date DATE NOT NULL,
+                        discussion_count INTEGER DEFAULT 0,
+                        participant_count INTEGER DEFAULT 0,
+                        sentiment_avg REAL,
+                        hotness_score REAL,
+                        trend_direction VARCHAR(20),
+                        prediction TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (demand_signal_id) REFERENCES demand_signals(id)
+                    )
+                """))
+            elif dialect in ("postgresql", "postgres"):
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS trend_analysis (
                         id SERIAL PRIMARY KEY,
@@ -139,7 +192,19 @@ def init_database():
             logger.info("✓ 创建 trend_analysis 表")
             
             # 创建 agent_discussions 表
-            if dialect in ("postgresql", "postgres"):
+            if dialect == "sqlite":
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS agent_discussions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        session_id VARCHAR(255) NOT NULL,
+                        agent_name VARCHAR(50) NOT NULL,
+                        message_type VARCHAR(20),
+                        content TEXT NOT NULL,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        metadata TEXT
+                    )
+                """))
+            elif dialect in ("postgresql", "postgres"):
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS agent_discussions (
                         id SERIAL PRIMARY KEY,
@@ -167,7 +232,21 @@ def init_database():
             logger.info("✓ 创建 agent_discussions 表")
             
             # 创建 demand_reports 表
-            if dialect in ("postgresql", "postgres"):
+            if dialect == "sqlite":
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS demand_reports (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        title VARCHAR(255) NOT NULL,
+                        report_type VARCHAR(50),
+                        content TEXT,
+                        html_content TEXT,
+                        communities TEXT,
+                        demand_signals TEXT,
+                        generated_by VARCHAR(50),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+            elif dialect in ("postgresql", "postgres"):
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS demand_reports (
                         id SERIAL PRIMARY KEY,

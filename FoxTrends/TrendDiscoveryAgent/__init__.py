@@ -1,6 +1,10 @@
-# -*- coding: utf-8 -*-
 """
-TrendDiscoveryAgent - 趋势发现 Agent
+TrendDiscoveryAgent - 需求发现Agent
+改造自 BettaFish 的 QueryEngine
+专注于发现当前需求热点和优先级分析
+"""
 
-改造自 BettaFish 的 QueryEngine，用于需求趋势发现和预测。
-"""
+from .agent import TrendDiscoveryAgent
+
+__all__ = ['TrendDiscoveryAgent']
+__version__ = "0.1.0"

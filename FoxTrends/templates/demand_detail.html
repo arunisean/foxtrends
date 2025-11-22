@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>需求详情 - FoxTrends</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+        }
+        
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 40px;
+        }
+        
+        .detail-card {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .demand-header {
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .demand-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .demand-meta {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .badge-pain {
+            background: #fee;
+            color: #c33;
+        }
+        
+        .badge-feature {
+            background: #efe;
+            color: #3c3;
+        }
+        
+        .badge-bug {
+            background: #ffe;
+            color: #cc3;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .content-text {
+            line-height: 1.8;
+            color: #555;
+            white-space: pre-wrap;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .hotness-display {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .hotness-bar {
+            flex: 1;
+            height: 12px;
+            background: #e0e0e0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .hotness-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffd700, #ff6b6b);
+            transition: width 0.5s;
+        }
+        
+        .hotness-score {
+            font-size: 28px;
+            font-weight: 700;
+            color: #ff6b6b;
+            min-width: 80px;
+            text-align: right;
+        }
+        
+        .sentiment-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        
+        .sentiment-positive {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .sentiment-neutral {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .sentiment-negative {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #999;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 60px;
+            color: #c33;
+        }
+        
+        .link {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🦊 需求详情</h1>
+        <button class="back-btn" onclick="goBack()">← 返回列表</button>
+    </div>
+    
+    <div class="container">
+        <div id="content">
+            <div class="loading">加载中...</div>
+        </div>
+    </div>
+    
+    <script>
+        const demandId = new URLSearchParams(window.location.search).get('id');
+        
+        async function loadDemandDetail() {
+            if (!demandId) {
+                document.getElementById('content').innerHTML = '<div class="error">无效的需求ID</div>';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/demands/${demandId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderDemand(data.demand);
+                } else {
+                    document.getElementById('content').innerHTML = `<div class="error">${data.message}</div>`;
+                }
+            } catch (error) {
+                console.error('加载需求详情失败:', error);
+                document.getElementById('content').innerHTML = '<div class="error">加载失败</div>';
+            }
+        }
+        
+        function renderDemand(demand) {
+            const sentiment = getSentimentClass(demand.sentiment_score);
+            const sentimentText = getSentimentText(demand.sentiment_score);
+            
+            document.getElementById('content').innerHTML = `
+                <div class="detail-card">
+                    <div class="demand-header">
+                        <h1 class="demand-title">${demand.title}</h1>
+                        <div class="demand-meta">
+                            <span class="badge ${getBadgeClass(demand.signal_type)}">${getSignalTypeText(demand.signal_type)}</span>
+                            <span class="meta-item">📍 ${demand.community}</span>
+                            <span class="meta-item">👤 ${demand.author || '匿名'}</span>
+                            <span class="meta-item">🕐 ${demand.created_at}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="section">
+                        <div class="section-title">热度分析</div>
+                        <div class="hotness-display">
+                            <div class="hotness-bar">
+                                <div class="hotness-fill" style="width: ${demand.hotness_score}%"></div>
+                            </div>
+                            <span class="hotness-score">${demand.hotness_score.toFixed(1)}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="section">
+                        <div class="section-title">统计数据</div>
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <div class="stat-label">讨论数</div>
+                                <div class="stat-value">${demand.discussion_count}</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">参与人数</div>
+                                <div class="stat-value">${demand.participant_count}</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">情感倾向</div>
+                                <div class="sentiment-indicator ${sentiment}">
+                                    ${sentimentText}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="section">
+                        <div class="section-title">需求内容</div>
+                        <div class="content-text">${demand.content || '暂无详细内容'}</div>
+                    </div>
+                    
+                    ${demand.source_url ? `
+                    <div class="section">
+                        <div class="section-title">来源链接</div>
+                        <a href="${demand.source_url}" target="_blank" class="link">${demand.source_url}</a>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="generateReport()">生成分析报告</button>
+                        <button class="btn btn-secondary" onclick="viewCommunity(${demand.community_id})">查看社区</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function getBadgeClass(type) {
+            const classes = {
+                'pain_point': 'badge-pain',
+                'feature_request': 'badge-feature',
+                'bug_report': 'badge-bug'
+            };
+            return classes[type] || 'badge-pain';
+        }
+        
+        function getSignalTypeText(type) {
+            const texts = {
+                'pain_point': '痛点',
+                'feature_request': '功能请求',
+                'bug_report': '问题反馈'
+            };
+            return texts[type] || type;
+        }
+        
+        function getSentimentClass(score) {
+            if (score > 0.2) return 'sentiment-positive';
+            if (score < -0.2) return 'sentiment-negative';
+            return 'sentiment-neutral';
+        }
+        
+        function getSentimentText(score) {
+            if (score > 0.2) return '😊 积极';
+            if (score < -0.2) return '😞 消极';
+            return '😐 中性';
+        }
+        
+        function goBack() {
+            window.location.href = '/dashboard';
+        }
+        
+        function generateReport() {
+            alert('生成报告功能开发中...');
+        }
+        
+        function viewCommunity(communityId) {
+            alert(`查看社区 #${communityId}\n\n功能开发中...`);
+        }
+        
+        // 页面加载时初始化
+        window.addEventListener('load', loadDemandDetail);
+    </script>
+</body>
+</html>

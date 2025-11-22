@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>需求分析 - FoxTrends</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: background 0.3s;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .nav-link.active {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 40px;
+        }
+        
+        .page-header {
+            margin-bottom: 30px;
+        }
+        
+        .page-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .page-subtitle {
+            font-size: 16px;
+            color: #666;
+        }
+        
+        .filters-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .filter-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .filter-select, .filter-input {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            min-width: 150px;
+        }
+        
+        .filter-select:focus, .filter-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+        
+        .metric-label {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .metric-change {
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        
+        .metric-change.positive {
+            color: #28a745;
+        }
+        
+        .metric-change.negative {
+            color: #dc3545;
+        }
+        
+        .chart-section {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .chart-container {
+            min-height: 400px;
+        }
+        
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .insight-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid #667eea;
+            transition: all 0.3s;
+        }
+        
+        .insight-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        
+        .insight-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        
+        .insight-icon {
+            font-size: 28px;
+        }
+        
+        .insight-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .insight-description {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .pain-points-section {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .pain-point-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #ff6b6b;
+            transition: all 0.3s;
+        }
+        
+        .pain-point-card:hover {
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .pain-point-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .pain-point-number {
+            background: #28a745;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .pain-point-content {
+            flex: 1;
+            margin-left: 15px;
+        }
+        
+        .pain-point-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .pain-point-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .severity-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .severity-high {
+            background: #fee;
+            color: #c33;
+        }
+        
+        .severity-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .severity-low {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .opportunity-score {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        .top-demands-list {
+            list-style: none;
+        }
+        
+        .top-demand-item {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+        
+        .top-demand-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .top-demand-item:last-child {
+            border-bottom: none;
+        }
+        
+        .demand-rank {
+            font-size: 20px;
+            font-weight: 700;
+            color: #667eea;
+            min-width: 40px;
+        }
+        
+        .demand-info {
+            flex: 1;
+            margin: 0 15px;
+        }
+        
+        .demand-title-small {
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .demand-meta-small {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .demand-score {
+            text-align: right;
+        }
+        
+        .score-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ff6b6b;
+        }
+        
+        .score-label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .badge-pain {
+            background: #fee;
+            color: #c33;
+        }
+        
+        .badge-feature {
+            background: #efe;
+            color: #3c3;
+        }
+        
+        .badge-bug {
+            background: #ffe;
+            color: #cc3;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #999;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .time-range-selector {
+            display: flex;
+            gap: 10px;
+            background: #f0f0f0;
+            padding: 4px;
+            border-radius: 8px;
+        }
+        
+        .time-range-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+        }
+        
+        .time-range-btn.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .time-range-btn:hover:not(.active) {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>🦊 FoxTrends</h1>
+            <nav class="nav-links">
+                <a href="/" class="nav-link">首页</a>
+                <a href="/dashboard" class="nav-link">Dashboard</a>
+                <a href="/analysis" class="nav-link active">需求分析</a>
+            </nav>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">需求趋势分析</h1>
+            <p class="page-subtitle">发现垂直社区中的热门需求和增长机会</p>
+        </div>
+        
+        <!-- 筛选栏 -->
+        <div class="filters-bar">
+            <div class="filter-group">
+                <label class="filter-label">时间范围</label>
+                <div class="time-range-selector">
+                    <button class="time-range-btn" data-range="7" onclick="setTimeRange(7)">7天</button>
+                    <button class="time-range-btn active" data-range="30" onclick="setTimeRange(30)">30天</button>
+                    <button class="time-range-btn" data-range="90" onclick="setTimeRange(90)">90天</button>
+                </div>
+            </div>
+            
+            <div class="filter-group">
+                <label class="filter-label">社区</label>
+                <select id="community-filter" class="filter-select" onchange="applyFilters()">
+                    <option value="">所有社区</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label class="filter-label">需求类型</label>
+                <select id="type-filter" class="filter-select" onchange="applyFilters()">
+                    <option value="">所有类型</option>
+                    <option value="pain_point">痛点</option>
+                    <option value="feature_request">功能请求</option>
+                    <option value="bug_report">问题反馈</option>
+                </select>
+            </div>
+            
+            <div class="filter-group" style="margin-left: auto;">
+                <label class="filter-label">&nbsp;</label>
+                <button class="btn btn-primary" onclick="exportData()">📊 导出数据</button>
+            </div>
+        </div>
+        
+        <!-- 关键指标 -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">📈 总需求数</div>
+                <div class="metric-value" id="metric-total">-</div>
+                <div class="metric-change positive" id="metric-total-change">-</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">🔥 平均热度</div>
+                <div class="metric-value" id="metric-hotness">-</div>
+                <div class="metric-change" id="metric-hotness-change">-</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">💬 总讨论数</div>
+                <div class="metric-value" id="metric-discussions">-</div>
+                <div class="metric-change positive" id="metric-discussions-change">-</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">👥 参与人数</div>
+                <div class="metric-value" id="metric-participants">-</div>
+                <div class="metric-change positive" id="metric-participants-change">-</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">😊 情感倾向</div>
+                <div class="metric-value" id="metric-sentiment">-</div>
+                <div class="metric-change" id="metric-sentiment-change">-</div>
+            </div>
+        </div>
+        
+        <!-- 趋势图表 -->
+        <div class="chart-section">
+            <div class="section-header">
+                <h2 class="section-title">需求热度趋势</h2>
+                <div class="time-range-selector">
+                    <button class="time-range-btn active" onclick="changeChartView('hotness')">热度</button>
+                    <button class="time-range-btn" onclick="changeChartView('volume')">数量</button>
+                    <button class="time-range-btn" onclick="changeChartView('sentiment')">情感</button>
+                </div>
+            </div>
+            <div id="trend-chart" class="chart-container"></div>
+        </div>
+        
+        <!-- 需求类型分布 -->
+        <div class="chart-section">
+            <div class="section-header">
+                <h2 class="section-title">需求类型分布</h2>
+            </div>
+            <div id="type-distribution-chart" class="chart-container" style="min-height: 300px;"></div>
+        </div>
+        
+        <!-- 关键痛点 -->
+        <div class="pain-points-section">
+            <div class="section-header">
+                <h2 class="section-title">关键痛点 (Key Pain Points)</h2>
+                <span class="badge badge-feature" style="background: #e8f5e9; color: #2e7d32;">基于社区讨论分析</span>
+            </div>
+            <div id="pain-points-list">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+        
+        <!-- 洞察卡片 -->
+        <div class="insights-grid">
+            <div class="insight-card">
+                <div class="insight-header">
+                    <div class="insight-icon">📈</div>
+                    <div class="insight-title">增长趋势</div>
+                </div>
+                <div class="insight-description" id="insight-growth">加载中...</div>
+            </div>
+            <div class="insight-card">
+                <div class="insight-header">
+                    <div class="insight-icon">💬</div>
+                    <div class="insight-title">讨论热度</div>
+                </div>
+                <div class="insight-description" id="insight-mentions">加载中...</div>
+            </div>
+            <div class="insight-card">
+                <div class="insight-header">
+                    <div class="insight-icon">🎯</div>
+                    <div class="insight-title">目标受众</div>
+                </div>
+                <div class="insight-description" id="insight-audience">加载中...</div>
+            </div>
+        </div>
+        
+        <!-- Top 需求列表 -->
+        <div class="chart-section">
+            <div class="section-header">
+                <h2 class="section-title">热门需求 Top 10</h2>
+                <button class="btn btn-secondary" onclick="viewAllDemands()">查看全部</button>
+            </div>
+            <ul class="top-demands-list" id="top-demands-list">
+                <li class="loading">加载中...</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        let currentTimeRange = 30;
+        let currentChartView = 'hotness';
+        let currentFilters = {
+            community: '',
+            type: ''
+        };
+        
+        // 初始化
+        window.addEventListener('load', () => {
+            loadCommunities();
+            loadMetrics();
+            loadTrendChart();
+            loadTypeDistribution();
+            loadPainPoints();
+            loadInsights();
+            loadTopDemands();
+        });
+        
+        // 设置时间范围
+        function setTimeRange(days) {
+            currentTimeRange = days;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.time-range-btn[data-range]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.range == days);
+            });
+            
+            // 重新加载数据
+            loadMetrics();
+            loadTrendChart();
+            loadPainPoints();
+            loadInsights();
+        }
+        
+        // 应用筛选
+        function applyFilters() {
+            currentFilters.community = document.getElementById('community-filter').value;
+            currentFilters.type = document.getElementById('type-filter').value;
+            
+            loadMetrics();
+            loadTrendChart();
+            loadTypeDistribution();
+            loadPainPoints();
+            loadTopDemands();
+        }
+        
+        // 加载社区列表
+        async function loadCommunities() {
+            try {
+                const response = await fetch('/api/communities');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const select = document.getElementById('community-filter');
+                    data.communities.forEach(community => {
+                        const option = document.createElement('option');
+                        option.value = community.id;
+                        option.textContent = community.name;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('加载社区列表失败:', error);
+            }
+        }
+        
+        // 加载指标
+        async function loadMetrics() {
+            try {
+                let url = `/api/analysis/metrics?days=${currentTimeRange}`;
+                if (currentFilters.community) url += `&community_id=${currentFilters.community}`;
+                if (currentFilters.type) url += `&signal_type=${currentFilters.type}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const metrics = data.metrics;
+                    document.getElementById('metric-total').textContent = metrics.total_demands;
+                    document.getElementById('metric-hotness').textContent = metrics.avg_hotness.toFixed(1);
+                    document.getElementById('metric-discussions').textContent = metrics.total_discussions;
+                    document.getElementById('metric-participants').textContent = metrics.total_participants;
+                    document.getElementById('metric-sentiment').textContent = metrics.avg_sentiment > 0 ? '😊' : metrics.avg_sentiment < 0 ? '😞' : '😐';
+                    
+                    // 显示变化
+                    if (metrics.changes) {
+                        updateMetricChange('metric-total-change', metrics.changes.demands);
+                        updateMetricChange('metric-hotness-change', metrics.changes.hotness);
+                        updateMetricChange('metric-discussions-change', metrics.changes.discussions);
+                        updateMetricChange('metric-participants-change', metrics.changes.participants);
+                    }
+                }
+            } catch (error) {
+                console.error('加载指标失败:', error);
+            }
+        }
+        
+        function updateMetricChange(elementId, change) {
+            const el = document.getElementById(elementId);
+            if (change > 0) {
+                el.textContent = `↑ ${change.toFixed(1)}%`;
+                el.className = 'metric-change positive';
+            } else if (change < 0) {
+                el.textContent = `↓ ${Math.abs(change).toFixed(1)}%`;
+                el.className = 'metric-change negative';
+            } else {
+                el.textContent = '→ 0%';
+                el.className = 'metric-change';
+            }
+        }
+        
+        // 加载趋势图表
+        async function loadTrendChart() {
+            try {
+                let url = `/api/analysis/trend?days=${currentTimeRange}&view=${currentChartView}`;
+                if (currentFilters.community) url += `&community_id=${currentFilters.community}`;
+                if (currentFilters.type) url += `&signal_type=${currentFilters.type}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const trace = {
+                        x: data.dates,
+                        y: data.values,
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        line: {
+                            color: '#667eea',
+                            width: 3
+                        },
+                        marker: {
+                            size: 8,
+                            color: '#667eea'
+                        },
+                        fill: 'tozeroy',
+                        fillcolor: 'rgba(102, 126, 234, 0.1)'
+                    };
+                    
+                    const layout = {
+                        margin: { t: 20, r: 20, b: 40, l: 50 },
+                        xaxis: {
+                            title: '日期',
+                            gridcolor: '#f0f0f0'
+                        },
+                        yaxis: {
+                            title: getChartYAxisTitle(),
+                            gridcolor: '#f0f0f0'
+                        },
+                        plot_bgcolor: 'white',
+                        paper_bgcolor: 'white'
+                    };
+                    
+                    Plotly.newPlot('trend-chart', [trace], layout, {responsive: true});
+                }
+            } catch (error) {
+                console.error('加载趋势图表失败:', error);
+            }
+        }
+        
+        function getChartYAxisTitle() {
+            switch (currentChartView) {
+                case 'hotness': return '平均热度';
+                case 'volume': return '需求数量';
+                case 'sentiment': return '情感分数';
+                default: return '';
+            }
+        }
+        
+        function changeChartView(view) {
+            currentChartView = view;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.chart-section .time-range-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            loadTrendChart();
+        }
+        
+        // 加载类型分布
+        async function loadTypeDistribution() {
+            try {
+                let url = `/api/analysis/type-distribution?days=${currentTimeRange}`;
+                if (currentFilters.community) url += `&community_id=${currentFilters.community}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const trace = {
+                        labels: data.labels,
+                        values: data.values,
+                        type: 'pie',
+                        marker: {
+                            colors: ['#ff6b6b', '#51cf66', '#ffd43b']
+                        },
+                        textinfo: 'label+percent',
+                        textposition: 'inside'
+                    };
+                    
+                    const layout = {
+                        margin: { t: 20, r: 20, b: 20, l: 20 },
+                        showlegend: true,
+                        legend: {
+                            orientation: 'h',
+                            y: -0.1
+                        }
+                    };
+                    
+                    Plotly.newPlot('type-distribution-chart', [trace], layout, {responsive: true});
+                }
+            } catch (error) {
+                console.error('加载类型分布失败:', error);
+            }
+        }
+        
+        // 加载痛点
+        async function loadPainPoints() {
+            try {
+                let url = `/api/analysis/pain-points?days=${currentTimeRange}`;
+                if (currentFilters.community) url += `&community_id=${currentFilters.community}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                const listEl = document.getElementById('pain-points-list');
+                
+                if (data.success && data.pain_points.length > 0) {
+                    listEl.innerHTML = data.pain_points.map((point, index) => `
+                        <div class="pain-point-card">
+                            <div class="pain-point-header">
+                                <div style="display: flex; align-items: flex-start; flex: 1;">
+                                    <div class="pain-point-number">${index + 1}</div>
+                                    <div class="pain-point-content">
+                                        <div class="pain-point-title">${point.title}</div>
+                                        <div class="pain-point-meta">
+                                            <span>📊 证据: ${point.evidence_count}</span>
+                                            <span>•</span>
+                                            <span>严重程度: <span class="severity-badge severity-${point.severity}">${getSeverityText(point.severity)}</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="opportunity-score">${point.score}/10</div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>暂无痛点数据</p></div>';
+                }
+            } catch (error) {
+                console.error('加载痛点失败:', error);
+            }
+        }
+        
+        function getSeverityText(severity) {
+            const texts = {
+                'high': '高',
+                'medium': '中',
+                'low': '低'
+            };
+            return texts[severity] || severity;
+        }
+        
+        // 加载洞察
+        async function loadInsights() {
+            try {
+                let url = `/api/analysis/insights?days=${currentTimeRange}`;
+                if (currentFilters.community) url += `&community_id=${currentFilters.community}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const insights = data.insights;
+                    
+                    // 增长趋势
+                    document.getElementById('insight-growth').innerHTML = `
+                        <div style="font-size: 24px; font-weight: 700; color: #28a745; margin-bottom: 5px;">
+                            ${insights.growth_rate > 0 ? '+' : ''}${insights.growth_rate}%
+                        </div>
+                        <div>过去 ${currentTimeRange} 天的需求增长率</div>
+                    `;
+                    
+                    // 讨论热度
+                    document.getElementById('insight-mentions').innerHTML = `
+                        <div style="font-size: 24px; font-weight: 700; color: #667eea; margin-bottom: 5px;">
+                            ${insights.total_mentions}
+                        </div>
+                        <div>总讨论次数，平均每个需求 ${insights.avg_mentions} 次讨论</div>
+                    `;
+                    
+                    // 目标受众
+                    document.getElementById('insight-audience').innerHTML = `
+                        <div style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 8px;">
+                            ${insights.top_community || '暂无数据'}
+                        </div>
+                        <div>最活跃的社区，占总需求的 ${insights.community_percentage}%</div>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载洞察失败:', error);
+            }
+        }
+        
+        // 加载Top需求
+        async function loadTopDemands() {
+            try {
+                let url = `/api/demands?limit=10`;
+                if (currentFilters.community) url += `&community_id=${currentFilters.community}`;
+                if (currentFilters.type) url += `&signal_type=${currentFilters.type}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                const listEl = document.getElementById('top-demands-list');
+                
+                if (data.success && data.demands.length > 0) {
+                    listEl.innerHTML = data.demands.map((demand, index) => `
+                        <li class="top-demand-item" onclick="viewDemand(${demand.id})">
+                            <div class="demand-rank">#${index + 1}</div>
+                            <div class="demand-info">
+                                <div class="demand-title-small">${demand.title}</div>
+                                <div class="demand-meta-small">
+                                    <span class="badge ${getBadgeClass(demand.signal_type)}">${getSignalTypeText(demand.signal_type)}</span>
+                                    ${demand.community} · ${demand.discussion_count} 讨论
+                                </div>
+                            </div>
+                            <div class="demand-score">
+                                <div class="score-value">${demand.hotness_score.toFixed(1)}</div>
+                                <div class="score-label">热度</div>
+                            </div>
+                        </li>
+                    `).join('');
+                } else {
+                    listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>暂无需求数据</p></div>';
+                }
+            } catch (error) {
+                console.error('加载Top需求失败:', error);
+            }
+        }
+        
+        // 辅助函数
+        function getBadgeClass(type) {
+            const classes = {
+                'pain_point': 'badge-pain',
+                'feature_request': 'badge-feature',
+                'bug_report': 'badge-bug'
+            };
+            return classes[type] || 'badge-pain';
+        }
+        
+        function getSignalTypeText(type) {
+            const texts = {
+                'pain_point': '痛点',
+                'feature_request': '功能请求',
+                'bug_report': '问题反馈'
+            };
+            return texts[type] || type;
+        }
+        
+        function viewDemand(id) {
+            window.location.href = `/demand/${id}`;
+        }
+        
+        function viewAllDemands() {
+            window.location.href = '/dashboard';
+        }
+        
+        function exportData() {
+            alert('导出功能开发中...');
+        }
+    </script>
+</body>
+</html>

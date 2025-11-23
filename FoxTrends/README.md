@@ -39,7 +39,29 @@ FoxTrends 包含以下核心组件：
 - UV 包管理工具
 - SQLite（默认，无需额外安装）或 PostgreSQL/MySQL（可选）
 
-### 安装步骤
+### 一键启动（推荐）
+
+```bash
+# 克隆项目
+git clone <repository-url>
+cd FoxTrends
+
+# 一键启动（自动安装依赖、初始化数据库、启动服务）
+./quick_start.sh
+```
+
+启动后访问：http://localhost:5000/
+
+### 一键停止
+
+```bash
+# 停止所有 FoxTrends 进程
+./quick_stop.sh
+```
+
+### 手动安装步骤
+
+如果需要手动控制每个步骤：
 
 1. 克隆项目
 ```bash
@@ -81,7 +103,45 @@ uv run python app.py
 7. 访问 Dashboard
 ```bash
 # 浏览器打开
-http://localhost:5000/dashboard
+http://localhost:5000/
+```
+
+## 常用命令
+
+### 启动和停止
+
+```bash
+# 启动服务
+./quick_start.sh
+
+# 停止服务
+./quick_stop.sh
+```
+
+### 数据管理
+
+```bash
+# 清理测试数据
+uv run python scripts/clean_test_data.py
+
+# 验证无mock数据
+uv run python scripts/verify_no_mock_data.py
+
+# 初始化数据库
+uv run python database/init_database.py
+```
+
+### 开发和测试
+
+```bash
+# 运行测试
+uv run pytest
+
+# 生成测试覆盖率报告
+uv run pytest --cov=FoxTrends --cov-report=html
+
+# 查看日志
+tail -f logs/forum.log
 ```
 
 ## 配置说明

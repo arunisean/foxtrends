@@ -41,6 +41,29 @@ if REPORT_ENGINE_AVAILABLE:
 else:
     logger.info("ReportEngine不可用，跳过接口注册")
 
+# 初始化监控管理器（延迟到第一次请求时）
+monitoring_manager = None
+
+def init_monitoring():
+    """初始化监控管理器（但不自动启动监控）"""
+    global monitoring_manager
+    if monitoring_manager is not None:
+        return
+    
+    try:
+        from NicheEngine.monitoring_manager import MonitoringManager
+        
+        logger.info("正在初始化监控管理器...")
+        monitoring_manager = MonitoringManager()
+        logger.info("监控管理器初始化完成（未启动监控）")
+    except Exception as e:
+        logger.error(f"监控管理器初始化失败: {e}")
+
+@app.before_request
+def before_first_request():
+    """第一次请求前初始化监控管理器"""
+    init_monitoring()
+
 # 设置UTF-8编码环境
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 os.environ['PYTHONUTF8'] = '1'
@@ -454,6 +477,28 @@ def initialize_system_components():
             logs.append(msg)
             errors.append(msg)
     
+    # 检查是否有活跃社区（但不自动启动监控）
+    try:
+        from NicheEngine.engine import NicheEngine
+        
+        engine = NicheEngine()
+        communities = engine.list_communities()
+        active_communities = [c for c in communities if c.status == 'active']
+        
+        logger.info(f"找到 {len(active_communities)} 个活跃社区")
+        logs.append(f"找到 {len(active_communities)} 个活跃社区")
+        
+        # 注意：真实数据采集功能尚未实现，不自动启动监控
+        # 用户可以在Dashboard中手动启动监控（但目前只会生成mock数据）
+        if active_communities:
+            logs.append("提示：真实数据采集功能尚未实现，监控功能暂时禁用")
+            logger.warning("真实数据采集功能尚未实现，监控功能暂时禁用")
+        
+    except Exception as e:
+        error_msg = f"检查社区状态失败: {e}"
+        logger.error(error_msg)
+        logs.append(error_msg)
+    
     if errors:
         cleanup_processes()
         processes['forum']['status'] = 'stopped'
@@ -492,14 +537,14 @@ atexit.register(cleanup_processes)
 
 @app.route('/')
 def index():
-    """主页"""
-    return render_template('index.html')
+    """主页 - 统一Dashboard"""
+    return render_template('unified_dashboard.html')
 
 
 @app.route('/dashboard')
 def dashboard():
-    """Dashboard页面"""
-    return render_template('dashboard.html')
+    """Dashboard页面 - 重定向到主页"""
+    return render_template('unified_dashboard.html')
 
 
 @app.route('/demand/<int:demand_id>')
@@ -661,11 +706,23 @@ def add_community():
             return jsonify({'success': False, 'message': '缺少必要参数'}), 400
         
         from NicheEngine.engine import NicheEngine
+        from NicheEngine.monitoring_manager import MonitoringManager
+        
         engine = NicheEngine()
         community = engine.add_community(name, source_type, config)
         
+        # 自动启动监控
+        try:
+            manager = MonitoringManager()
+            manager.start_monitoring(community)
+            logger.info(f"已为新社区 {community.name} 启动监控")
+        except Exception as e:
+            logger.error(f"启动监控失败: {e}")
+            # 不影响社区添加，继续返回成功
+        
         return jsonify({
             'success': True,
+            'message': f'社区 {name} 添加成功，监控已启动',
             'community': {
                 'id': community.id,
                 'name': community.name,
@@ -741,7 +798,7 @@ def list_demands():
                 'author': row[7],
                 'discussion_count': row[8] or 0,
                 'participant_count': row[9] or 0,
-                'created_at': row[10].strftime('%Y-%m-%d %H:%M:%S') if row[10] else '',
+                'created_at': row[10].strftime('%Y-%m-%d %H:%M:%S') if row[10] and hasattr(row[10], 'strftime') else (str(row[10]) if row[10] else ''),
                 'community': row[11] or 'Unknown',
                 'community_type': row[12] or 'unknown'
             })
@@ -779,7 +836,7 @@ def get_demand_detail(demand_id):
                 ds.discussion_count,
                 ds.participant_count,
                 ds.created_at,
-                ds.updated_at,
+                ds.extracted_at,
                 c.name as community_name,
                 c.source_type as community_type,
                 c.id as community_id
@@ -805,8 +862,8 @@ def get_demand_detail(demand_id):
             'author': row[7],
             'discussion_count': row[8] or 0,
             'participant_count': row[9] or 0,
-            'created_at': row[10].strftime('%Y-%m-%d %H:%M:%S') if row[10] else '',
-            'updated_at': row[11].strftime('%Y-%m-%d %H:%M:%S') if row[11] else '',
+            'created_at': row[10].strftime('%Y-%m-%d %H:%M:%S') if row[10] and hasattr(row[10], 'strftime') else (str(row[10]) if row[10] else ''),
+            'updated_at': row[11].strftime('%Y-%m-%d %H:%M:%S') if row[11] and hasattr(row[11], 'strftime') else (str(row[11]) if row[11] else ''),
             'community': row[12] or 'Unknown',
             'community_type': row[13] or 'unknown',
             'community_id': row[14]
@@ -818,6 +875,44 @@ def get_demand_detail(demand_id):
         })
     except Exception as e:
         logger.exception(f"获取需求详情失败: {demand_id}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/demands/<int:demand_id>/discussions', methods=['GET'])
+def get_demand_discussions(demand_id):
+    """获取需求的 Agent 讨论记录"""
+    try:
+        from database.db_manager import DatabaseManager
+        
+        db = DatabaseManager()
+        
+        # 查询该需求相关的 Agent 讨论
+        query = """
+            SELECT 
+                agent_name,
+                content,
+                created_at
+            FROM agent_discussions
+            WHERE demand_id = %s
+            ORDER BY created_at ASC
+        """
+        
+        results = db.execute_query(query, (demand_id,))
+        
+        discussions = []
+        for row in results:
+            discussions.append({
+                'agent_name': row[0],
+                'content': row[1],
+                'timestamp': row[2].strftime('%Y-%m-%d %H:%M:%S') if row[2] and hasattr(row[2], 'strftime') else str(row[2])
+            })
+        
+        return jsonify({
+            'success': True,
+            'discussions': discussions
+        })
+    except Exception as e:
+        logger.exception(f"获取需求讨论失败: {demand_id}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
@@ -959,7 +1054,12 @@ def get_analysis_trend():
         values = []
         
         for row in results:
-            dates.append(row[0].strftime('%Y-%m-%d'))
+            # 处理日期 - SQLite 可能返回字符串
+            date_val = row[0]
+            if hasattr(date_val, 'strftime'):
+                dates.append(date_val.strftime('%Y-%m-%d'))
+            else:
+                dates.append(str(date_val))
             values.append(float(row[1]) if row[1] else 0.0)
         
         return jsonify({
@@ -1143,16 +1243,26 @@ def get_analysis_insights():
         fastest = f'"{fastest_result[0][0]}" (热度: {fastest_result[0][1]:.1f})' if fastest_result else '暂无数据'
         
         # 最活跃的社区
+        # 需要为JOIN查询重新构建where子句，添加表前缀
+        active_where_clauses = ["ds.created_at >= %s AND ds.created_at <= %s"]
+        active_params = [start_date, end_date]
+        
+        if community_id:
+            active_where_clauses.append("ds.community_id = %s")
+            active_params.append(community_id)
+        
+        active_where_clause = " AND ".join(active_where_clauses)
+        
         active_query = f"""
             SELECT c.name, COUNT(*) as demand_count
             FROM demand_signals ds
             JOIN communities c ON ds.community_id = c.id
-            WHERE {where_clause}
+            WHERE {active_where_clause}
             GROUP BY c.name
             ORDER BY demand_count DESC
             LIMIT 1
         """
-        active_result = db.execute_query(active_query, tuple(params))
+        active_result = db.execute_query(active_query, tuple(active_params))
         active_community = f'{active_result[0][0]} ({active_result[0][1]} 个需求)' if active_result else '暂无数据'
         
         # 关键发现
@@ -1230,35 +1340,74 @@ def generate_report():
     try:
         data = request.get_json()
         demand_ids = data.get('demand_ids', [])
-        report_type = data.get('report_type', 'demand_analysis')
+        time_range = data.get('time_range', '30天')
         
         if not demand_ids:
             return jsonify({'success': False, 'message': '请选择至少一个需求'}), 400
         
-        # 这里应该调用 ReportEngine 生成报告
-        # 暂时返回模拟数据
-        report_id = f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        # 获取需求详情
+        from database.db_manager import DatabaseManager
+        db = DatabaseManager()
+        
+        placeholders = ','.join(['%s'] * len(demand_ids))
+        query = f"""
+            SELECT 
+                ds.id,
+                ds.title,
+                ds.content,
+                ds.signal_type,
+                ds.hotness_score,
+                ds.sentiment_score,
+                ds.discussion_count,
+                ds.participant_count,
+                c.name as community
+            FROM demand_signals ds
+            LEFT JOIN communities c ON ds.community_id = c.id
+            WHERE ds.id IN ({placeholders})
+            ORDER BY ds.hotness_score DESC
+        """
+        
+        results = db.execute_query(query, tuple(demand_ids))
+        
+        demands = []
+        for row in results:
+            demands.append({
+                'id': row[0],
+                'title': row[1],
+                'content': row[2][:500] + '...' if row[2] and len(row[2]) > 500 else row[2],
+                'signal_type': row[3],
+                'hotness_score': float(row[4]) if row[4] else 0.0,
+                'sentiment_score': float(row[5]) if row[5] else 0.0,
+                'discussion_count': row[6] or 0,
+                'participant_count': row[7] or 0,
+                'community': row[8] or 'Unknown'
+            })
+        
+        # 生成报告
+        from ReportEngine.flask_interface import generate_demand_analysis_report
+        report_id, report_path = generate_demand_analysis_report(demands, time_range)
         
         return jsonify({
             'success': True,
             'report_id': report_id,
-            'message': '报告生成中，请稍候...'
+            'report_url': f'/reports/{report_id}.html',
+            'message': '报告生成成功'
         })
     except Exception as e:
         logger.exception("生成报告失败")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@app.route('/api/reports/<report_id>/download', methods=['GET'])
-def download_report(report_id):
-    """下载报告"""
+@app.route('/reports/<path:filename>')
+def serve_report(filename):
+    """提供报告文件"""
     try:
-        # 这里应该返回实际的报告文件
-        # 暂时返回错误
-        return jsonify({'success': False, 'message': '报告下载功能开发中'}), 501
+        from flask import send_from_directory
+        report_dir = Path('final_reports')
+        return send_from_directory(report_dir, filename)
     except Exception as e:
-        logger.exception(f"下载报告失败: {report_id}")
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logger.exception(f"提供报告文件失败: {filename}")
+        return jsonify({'success': False, 'message': '报告不存在'}), 404
 
 
 @app.route('/api/dashboard/stats', methods=['GET'])
@@ -1342,10 +1491,40 @@ def update_config():
 def get_system_status():
     """返回系统启动状态"""
     state = _get_system_state()
+    
+    # 检查数据库连接状态
+    db_connected = False
+    try:
+        from database.db_manager import DatabaseManager
+        db = DatabaseManager()
+        db_connected = db.test_connection()
+        db.close()
+    except Exception as e:
+        logger.error(f"数据库状态检查失败: {e}")
+    
+    # 获取监控任务状态
+    active_tasks_count = 0
+    try:
+        from NicheEngine.monitoring_manager import MonitoringManager
+        manager = MonitoringManager()
+        status = manager.get_status()
+        active_tasks_count = status['active_tasks']
+    except Exception as e:
+        logger.error(f"获取监控状态失败: {e}")
+    
+    # 检查真实数据采集功能是否已实现
+    from NicheEngine.monitoring_task import MonitoringTask
+    real_crawler_available = MonitoringTask.USE_MOCK_DATA
+    
     return jsonify({
         'success': True,
         'started': state['started'],
-        'starting': state['starting']
+        'starting': state['starting'],
+        'database_connected': db_connected,
+        'active_tasks_count': active_tasks_count,
+        'real_crawler_available': real_crawler_available,
+        'crawler_status': 'mock_only' if not real_crawler_available else 'real_data',
+        'last_update': datetime.now().isoformat()
     })
 
 
@@ -1377,6 +1556,27 @@ def start_system():
         _set_system_state(starting=False)
 
 
+@app.route('/api/system/stop', methods=['POST'])
+def stop_system():
+    """停止系统"""
+    try:
+        # 停止所有监控任务
+        from NicheEngine.monitoring_manager import MonitoringManager
+        manager = MonitoringManager()
+        manager.stop_all()
+        
+        # 停止 ForumEngine
+        stop_forum_engine()
+        
+        # 更新系统状态
+        _set_system_state(started=False, starting=False)
+        
+        return jsonify({'success': True, 'message': '系统已停止'})
+    except Exception as exc:
+        logger.exception("停止系统失败")
+        return jsonify({'success': False, 'message': f'停止系统失败: {exc}'}), 500
+
+
 # ==================== SocketIO事件 ====================
 
 @socketio.on('connect')
@@ -1395,6 +1595,142 @@ def handle_status_request():
         }
         for app_name, info in processes.items()
     })
+
+
+# ==================== 监控 API ====================
+
+@app.route('/api/monitoring/logs')
+def get_monitoring_logs():
+    """获取监控日志"""
+    try:
+        limit = request.args.get('limit', 50, type=int)
+        level = request.args.get('level', None)
+        community_id = request.args.get('community_id', None, type=int)
+        
+        from NicheEngine.monitoring_manager import MonitoringManager
+        manager = MonitoringManager()
+        logs = manager.get_logs(limit=limit, level=level, community_id=community_id)
+        
+        return jsonify({
+            'success': True,
+            'logs': logs
+        })
+    except Exception as e:
+        logger.error(f"获取监控日志失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/communities/<int:community_id>/monitoring', methods=['POST'])
+def control_community_monitoring(community_id):
+    """控制社区监控状态"""
+    try:
+        data = request.get_json()
+        action = data.get('action')
+        
+        if action not in ['start', 'stop', 'pause', 'resume']:
+            return jsonify({'success': False, 'message': '无效的操作'}), 400
+        
+        from NicheEngine.monitoring_manager import MonitoringManager
+        from NicheEngine.engine import NicheEngine
+        
+        manager = MonitoringManager()
+        engine = NicheEngine()
+        
+        if action == 'start':
+            # 获取社区信息
+            communities = engine.list_communities()
+            community = next((c for c in communities if c.id == community_id), None)
+            
+            if not community:
+                return jsonify({'success': False, 'message': '社区不存在'}), 404
+            
+            result = manager.start_monitoring(community)
+            message = '监控已启动' if result else '监控启动失败（可能已在运行）'
+            status = 'running' if result else manager.tasks.get(community_id).status if community_id in manager.tasks else 'idle'
+            
+        elif action == 'stop':
+            result = manager.stop_monitoring(community_id)
+            message = '监控已停止' if result else '停止失败'
+            status = 'stopped' if result else 'unknown'
+            
+        elif action == 'pause':
+            result = manager.pause_monitoring(community_id)
+            message = '监控已暂停' if result else '暂停失败'
+            status = 'paused' if result else 'unknown'
+            
+        elif action == 'resume':
+            result = manager.resume_monitoring(community_id)
+            message = '监控已恢复' if result else '恢复失败'
+            status = 'running' if result else 'unknown'
+        
+        return jsonify({
+            'success': result,
+            'message': message,
+            'status': status
+        })
+        
+    except Exception as e:
+        logger.error(f"控制监控失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/communities/<int:community_id>/stats')
+def get_community_stats(community_id):
+    """获取社区统计信息"""
+    try:
+        from database.db_manager import DatabaseManager
+        from sqlalchemy import text
+        
+        db = DatabaseManager()
+        
+        with db.engine.connect() as conn:
+            # 获取社区基本信息
+            result = conn.execute(
+                text("""
+                    SELECT name, source_type, status, last_collection_time, 
+                           total_signals, error_count, monitoring_status
+                    FROM communities 
+                    WHERE id = :id
+                """),
+                {'id': community_id}
+            )
+            row = result.fetchone()
+            
+            if not row:
+                return jsonify({'success': False, 'message': '社区不存在'}), 404
+            
+            # 获取监控任务状态
+            from NicheEngine.monitoring_manager import MonitoringManager
+            manager = MonitoringManager()
+            task_status = 'idle'
+            signals_collected = 0
+            
+            if community_id in manager.tasks:
+                task = manager.tasks[community_id]
+                task_status = task.status
+                signals_collected = task.signals_collected
+            
+            stats = {
+                'name': row[0],
+                'source_type': row[1],
+                'status': row[2],
+                'last_collection': row[3],
+                'total_signals': row[4] or 0,
+                'error_count': row[5] or 0,
+                'monitoring_status': task_status,
+                'signals_collected_this_session': signals_collected
+            }
+        
+        db.close()
+        
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+        
+    except Exception as e:
+        logger.error(f"获取社区统计失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 if __name__ == '__main__':

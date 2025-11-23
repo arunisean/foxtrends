@@ -44,6 +44,10 @@ def init_database():
                         source_url TEXT,
                         config TEXT,
                         status VARCHAR(20) DEFAULT 'active',
+                        last_collection_time TIMESTAMP,
+                        total_signals INTEGER DEFAULT 0,
+                        error_count INTEGER DEFAULT 0,
+                        monitoring_status VARCHAR(20) DEFAULT 'idle',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
@@ -57,6 +61,10 @@ def init_database():
                         source_url TEXT,
                         config JSONB,
                         status VARCHAR(20) DEFAULT 'active',
+                        last_collection_time TIMESTAMP,
+                        total_signals INTEGER DEFAULT 0,
+                        error_count INTEGER DEFAULT 0,
+                        monitoring_status VARCHAR(20) DEFAULT 'idle',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
@@ -70,6 +78,10 @@ def init_database():
                         source_url TEXT,
                         config JSON,
                         status VARCHAR(20) DEFAULT 'active',
+                        last_collection_time TIMESTAMP NULL,
+                        total_signals INT DEFAULT 0,
+                        error_count INT DEFAULT 0,
+                        monitoring_status VARCHAR(20) DEFAULT 'idle',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                     )
@@ -230,6 +242,45 @@ def init_database():
                 """))
             
             logger.info("✓ 创建 agent_discussions 表")
+            
+            # 创建 monitoring_logs 表
+            if dialect == "sqlite":
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS monitoring_logs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        level VARCHAR(20) NOT NULL,
+                        message TEXT NOT NULL,
+                        community_id INTEGER,
+                        metadata TEXT,
+                        FOREIGN KEY (community_id) REFERENCES communities(id)
+                    )
+                """))
+            elif dialect in ("postgresql", "postgres"):
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS monitoring_logs (
+                        id SERIAL PRIMARY KEY,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        level VARCHAR(20) NOT NULL,
+                        message TEXT NOT NULL,
+                        community_id INTEGER REFERENCES communities(id),
+                        metadata JSONB
+                    )
+                """))
+            else:  # mysql
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS monitoring_logs (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        level VARCHAR(20) NOT NULL,
+                        message TEXT NOT NULL,
+                        community_id INT,
+                        metadata JSON,
+                        FOREIGN KEY (community_id) REFERENCES communities(id)
+                    )
+                """))
+            
+            logger.info("✓ 创建 monitoring_logs 表")
             
             # 创建 demand_reports 表
             if dialect == "sqlite":

@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: foxtrends-postgres
+    environment:
+      POSTGRES_DB: foxtrends
+      POSTGRES_USER: foxtrends_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-foxtrends_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foxtrends_user -d foxtrends"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - foxtrends-network
+
+  # FoxTrends 应用
+  foxtrends:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: foxtrends-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # 应用配置
+      APP_ENV: production
+      APP_HOST: 0.0.0.0
+      APP_PORT: 5000
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key}
+      
+      # 数据库配置
+      DB_DIALECT: postgresql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: foxtrends
+      DB_USER: foxtrends_user
+      DB_PASSWORD: ${DB_PASSWORD:-foxtrends_password}
+      
+      # LLM 配置 - Insight Agent
+      INSIGHT_AGENT_LLM_API_KEY: ${INSIGHT_AGENT_LLM_API_KEY}
+      INSIGHT_AGENT_LLM_BASE_URL: ${INSIGHT_AGENT_LLM_BASE_URL:-https://api.moonshot.cn/v1}
+      INSIGHT_AGENT_LLM_MODEL: ${INSIGHT_AGENT_LLM_MODEL:-moonshot-v1-8k}
+      
+      # LLM 配置 - Content Agent
+      CONTENT_AGENT_LLM_API_KEY: ${CONTENT_AGENT_LLM_API_KEY}
+      CONTENT_AGENT_LLM_BASE_URL: ${CONTENT_AGENT_LLM_BASE_URL:-https://api.moonshot.cn/v1}
+      CONTENT_AGENT_LLM_MODEL: ${CONTENT_AGENT_LLM_MODEL:-moonshot-v1-8k}
+      
+      # ForumEngine 配置
+      FORUM_ENGINE_LLM_API_KEY: ${FORUM_ENGINE_LLM_API_KEY}
+      FORUM_ENGINE_LLM_BASE_URL: ${FORUM_ENGINE_LLM_BASE_URL:-https://api.moonshot.cn/v1}
+      FORUM_ENGINE_LLM_MODEL: ${FORUM_ENGINE_LLM_MODEL:-moonshot-v1-8k}
+      
+      # Reddit API
+      REDDIT_CLIENT_ID: ${REDDIT_CLIENT_ID}
+      REDDIT_CLIENT_SECRET: ${REDDIT_CLIENT_SECRET}
+      REDDIT_USER_AGENT: ${REDDIT_USER_AGENT:-FoxTrends/1.0}
+      
+      # GitHub API
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      
+      # 日志配置
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+    volumes:
+      - ./logs:/app/logs
+      - ./final_reports:/app/final_reports
+      - ./foxtrends.db:/app/foxtrends.db  # SQLite 备用
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    networks:
+      - foxtrends-network
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        sleep 10 &&
+        echo 'Initializing database...' &&
+        uv run python database/init_database.py &&
+        echo 'Starting FoxTrends...' &&
+        uv run python app.py
+      "
+
+  # Redis (可选，用于缓存)
+  redis:
+    image: redis:7-alpine
+    container_name: foxtrends-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - foxtrends-network
+    profiles:
+      - with-redis
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  foxtrends-network:
+    driver: bridge

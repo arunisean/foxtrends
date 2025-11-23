@@ -142,59 +142,70 @@ def sample_demand(db_session):
     from database.db_manager import DatabaseManager
     
     db = DatabaseManager()
+    community_id = None
+    demand_id = None
     
-    # 先创建社区
-    community_query = """
-        INSERT INTO communities (name, source_type, status, config, created_at)
-        VALUES (%s, %s, %s, %s, %s)
-        RETURNING id
-    """
-    community_result = db.execute_query(
-        community_query,
-        ('Test Community', 'reddit', 'active', '{}', datetime.now())
-    )
-    community_id = community_result[0][0]
-    
-    # 创建需求
-    demand_query = """
-        INSERT INTO demand_signals (
-            community_id, title, content, signal_type,
-            hotness_score, sentiment_score, source_url,
-            author, discussion_count, participant_count,
-            created_at
+    try:
+        # 先创建社区
+        community_query = """
+            INSERT INTO communities (name, source_type, status, config, created_at)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+        """
+        community_result = db.execute_query(
+            community_query,
+            ('__TEST_Community__', 'reddit', 'active', '{}', datetime.now())
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id
-    """
-    demand_result = db.execute_query(
-        demand_query,
-        (
-            community_id,
-            'Test Demand',
-            'This is a test demand content',
-            'pain_point',
-            85.5,
-            -0.3,
-            'https://example.com/test',
-            'test_user',
-            10,
-            5,
-            datetime.now()
+        community_id = community_result[0][0]
+        
+        # 创建需求
+        demand_query = """
+            INSERT INTO demand_signals (
+                community_id, title, content, signal_type,
+                hotness_score, sentiment_score, source_url,
+                author, discussion_count, participant_count,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """
+        demand_result = db.execute_query(
+            demand_query,
+            (
+                community_id,
+                '__TEST_Demand__',
+                'This is a test demand content',
+                'pain_point',
+                85.5,
+                -0.3,
+                'https://reddit.com/r/test/comments/test123',  # 使用真实格式的 URL
+                'test_user',
+                10,
+                5,
+                datetime.now()
+            )
         )
-    )
-    demand_id = demand_result[0][0]
-    
-    # 返回一个简单的对象
-    class Demand:
-        def __init__(self, id, title):
-            self.id = id
-            self.title = title
-    
-    yield Demand(demand_id, 'Test Demand')
-    
-    # 清理
-    db.execute_query("DELETE FROM demand_signals WHERE id = %s", (demand_id,))
-    db.execute_query("DELETE FROM communities WHERE id = %s", (community_id,))
+        demand_id = demand_result[0][0]
+        
+        # 返回一个简单的对象
+        class Demand:
+            def __init__(self, id, title):
+                self.id = id
+                self.title = title
+        
+        yield Demand(demand_id, '__TEST_Demand__')
+        
+    finally:
+        # 确保清理，即使测试失败
+        try:
+            if demand_id:
+                db.execute_query("DELETE FROM demand_signals WHERE id = %s", (demand_id,))
+            if community_id:
+                db.execute_query("DELETE FROM communities WHERE id = %s", (community_id,))
+        except Exception as e:
+            print(f"清理测试数据失败: {e}")
+        finally:
+            db.close()
 
 
 @pytest.fixture

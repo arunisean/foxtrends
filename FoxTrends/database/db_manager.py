@@ -21,6 +21,28 @@ sys.path.insert(0, str(project_root))
 from config import settings
 
 
+import threading
+
+def safe_log(level: str, message: str):
+    """安全的日志记录，避免在程序关闭时出错"""
+    # 在后台线程中不记录日志，避免程序关闭时的错误
+    if threading.current_thread().name.startswith('monitor'):
+        return
+    
+    try:
+        if level == 'info':
+            logger.info(message)
+        elif level == 'error':
+            logger.error(message)
+        elif level == 'warning':
+            logger.warning(message)
+        elif level == 'debug':
+            logger.debug(message)
+    except Exception:
+        # 完全忽略所有日志错误
+        pass
+
+
 class DatabaseManager:
     """
     数据库管理器
@@ -42,16 +64,16 @@ class DatabaseManager:
         try:
             url = build_database_url()
             self.engine = create_engine(url, future=True, pool_pre_ping=True, pool_recycle=1800)
-            logger.info(f"成功连接到数据库: {settings.DB_NAME} ({settings.DB_DIALECT})")
+            safe_log('info', f"成功连接到数据库: {settings.DB_NAME} ({settings.DB_DIALECT})")
         except Exception as e:
-            logger.error(f"数据库连接失败: {e}")
+            safe_log('error', f"数据库连接失败: {e}")
             raise
     
     def close(self):
         """关闭数据库连接"""
         if self.engine:
             self.engine.dispose()
-            logger.info("数据库连接已关闭")
+            safe_log('info', "数据库连接已关闭")
     
     def test_connection(self) -> bool:
         """
@@ -63,10 +85,10 @@ class DatabaseManager:
         try:
             with self.engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            logger.info("数据库连接测试成功")
+            safe_log('info', "数据库连接测试成功")
             return True
         except Exception as e:
-            logger.error(f"数据库连接测试失败: {e}")
+            safe_log('error', f"数据库连接测试失败: {e}")
             return False
     
     def show_tables(self):

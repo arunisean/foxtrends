@@ -275,6 +275,16 @@
                             document.getElementById('start-btn').disabled = false;
                             document.getElementById('dashboard-btn').disabled = true;
                         }
+                        
+                        // 更新数据库连接状态
+                        const dbStatus = document.getElementById('db-status');
+                        if (data.database_connected) {
+                            dbStatus.textContent = '已连接';
+                            dbStatus.className = 'status-value status-running';
+                        } else {
+                            dbStatus.textContent = '未连接';
+                            dbStatus.className = 'status-value status-stopped';
+                        }
                     }
                 });
             

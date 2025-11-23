@@ -30,6 +30,9 @@ class NicheEngine:
         Args:
             db_manager: 数据库管理器实例
         """
+        if db_manager is None:
+            from database.db_manager import DatabaseManager
+            db_manager = DatabaseManager()
         self.db_manager = db_manager
         self.communities: Dict[int, Community] = {}
         self.monitoring_status: Dict[int, str] = {}
@@ -46,16 +49,40 @@ class NicheEngine:
         Returns:
             创建的社区对象
         """
+        import json
+        from sqlalchemy import text
+        
+        # 保存到数据库
+        config_json = json.dumps(config) if config else '{}'
+        
+        with self.db_manager.engine.begin() as conn:
+            result = conn.execute(
+                text("""
+                    INSERT INTO communities (name, source_type, config, status)
+                    VALUES (:name, :source_type, :config, :status)
+                """),
+                {
+                    'name': name,
+                    'source_type': source_type,
+                    'config': config_json,
+                    'status': 'active'
+                }
+            )
+            
+            # 获取插入的 ID
+            community_id = result.lastrowid
+        
+        # 创建社区对象
         community = Community(
             name=name,
             source_type=source_type,
             config=config,
             status='active'
         )
+        community.id = community_id
         
-        # 占位符 - 实际需要保存到数据库
-        community.id = len(self.communities) + 1
-        self.communities[community.id] = community
+        # 缓存到内存
+        self.communities[community_id] = community
         
         return community
     
@@ -123,7 +150,33 @@ class NicheEngine:
     
     def list_communities(self) -> List[Community]:
         """获取所有社区列表"""
-        return list(self.communities.values())
+        import json
+        from sqlalchemy import text
+        
+        communities = []
+        
+        with self.db_manager.engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT id, name, source_type, config, status, created_at FROM communities ORDER BY created_at DESC")
+            )
+            
+            for row in result:
+                # 解析 config JSON
+                try:
+                    config = json.loads(row[3]) if row[3] else {}
+                except:
+                    config = {}
+                
+                community = Community(
+                    name=row[1],
+                    source_type=row[2],
+                    config=config,
+                    status=row[4]
+                )
+                community.id = row[0]
+                communities.append(community)
+        
+        return communities
     
     def calculate_hotness(self, signal: DemandSignal, 
                          discussion_count: int = 0,

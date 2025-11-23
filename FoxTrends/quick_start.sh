@@ -33,6 +33,6 @@ uv run python database/init_database.py
 echo ""
 echo "🎉 启动 FoxTrends..."
 echo ""
-echo "访问 Dashboard: http://localhost:5000/dashboard"
+echo "访问 Dashboard: http://localhost:5000/"
 echo ""
 uv run python app.py

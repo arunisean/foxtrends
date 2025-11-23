@@ -669,6 +669,31 @@ def get_forum_log():
 
 # ==================== Dashboard API ====================
 
+@app.route('/api/recommended-communities', methods=['GET'])
+def get_recommended_communities():
+    """获取推荐社区列表"""
+    try:
+        import json
+        config_path = Path(__file__).parent / 'config' / 'recommended_communities.json'
+        
+        if not config_path.exists():
+            return jsonify({
+                'international': [],
+                'chinese': []
+            })
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        return jsonify(data)
+    except Exception as e:
+        logger.error(f"加载推荐社区失败: {e}")
+        return jsonify({
+            'international': [],
+            'chinese': []
+        }), 500
+
+
 @app.route('/api/communities', methods=['GET'])
 def list_communities():
     """获取所有社区列表"""
@@ -700,37 +725,80 @@ def add_community():
         data = request.get_json()
         name = data.get('name')
         source_type = data.get('source_type')
+        source_url = data.get('source_url')  # 添加URL参数
         config = data.get('config', {})
         
         if not name or not source_type:
             return jsonify({'success': False, 'message': '缺少必要参数'}), 400
         
         from NicheEngine.engine import NicheEngine
-        from NicheEngine.monitoring_manager import MonitoringManager
         
         engine = NicheEngine()
-        community = engine.add_community(name, source_type, config)
+        community = engine.add_community(name, source_type, config, source_url)
         
-        # 自动启动监控
-        try:
-            manager = MonitoringManager()
-            manager.start_monitoring(community)
-            logger.info(f"已为新社区 {community.name} 启动监控")
-        except Exception as e:
-            logger.error(f"启动监控失败: {e}")
-            # 不影响社区添加，继续返回成功
+        # 不自动启动监控，让用户手动控制
+        logger.info(f"已添加新社区 {community.name}，监控状态: not_started")
         
         return jsonify({
             'success': True,
-            'message': f'社区 {name} 添加成功，监控已启动',
+            'message': f'社区 {name} 添加成功',
             'community': {
                 'id': community.id,
                 'name': community.name,
                 'source_type': community.source_type,
-                'status': community.status
+                'status': community.status,
+                'monitoring_status': 'not_started'
             }
         })
     except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/communities/<int:community_id>', methods=['DELETE'])
+def delete_community(community_id):
+    """删除社区（停止监控，但保留已采集的数据）"""
+    try:
+        from database.db_manager import DatabaseManager
+        from sqlalchemy import text
+        
+        db = DatabaseManager()
+        
+        # 检查社区是否存在
+        with db.engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT name FROM communities WHERE id = :id"),
+                {'id': community_id}
+            ).fetchone()
+            
+            if not result:
+                return jsonify({'success': False, 'message': '社区不存在'}), 404
+            
+            community_name = result[0]
+        
+        # 停止监控任务（如果正在运行）
+        try:
+            if monitoring_manager:
+                monitoring_manager.stop_monitoring(community_id)
+                logger.info(f"已停止社区 {community_name} 的监控")
+        except Exception as e:
+            logger.warning(f"停止监控失败: {e}")
+        
+        # 删除社区记录（但保留已采集的数据）
+        with db.engine.begin() as conn:
+            conn.execute(
+                text("DELETE FROM communities WHERE id = :id"),
+                {'id': community_id}
+            )
+        
+        logger.info(f"社区 {community_name} (ID: {community_id}) 已删除")
+        
+        return jsonify({
+            'success': True,
+            'message': f'社区 {community_name} 已删除，已采集的数据已保留'
+        })
+        
+    except Exception as e:
+        logger.error(f"删除社区失败: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
@@ -1512,18 +1580,14 @@ def get_system_status():
     except Exception as e:
         logger.error(f"获取监控状态失败: {e}")
     
-    # 检查真实数据采集功能是否已实现
-    from NicheEngine.monitoring_task import MonitoringTask
-    real_crawler_available = MonitoringTask.USE_MOCK_DATA
-    
     return jsonify({
         'success': True,
         'started': state['started'],
         'starting': state['starting'],
         'database_connected': db_connected,
         'active_tasks_count': active_tasks_count,
-        'real_crawler_available': real_crawler_available,
-        'crawler_status': 'mock_only' if not real_crawler_available else 'real_data',
+        'real_crawler_available': True,  # 真实爬虫已实现
+        'crawler_status': 'real_data',
         'last_update': datetime.now().isoformat()
     })
 
@@ -1644,7 +1708,7 @@ def control_community_monitoring(community_id):
             if not community:
                 return jsonify({'success': False, 'message': '社区不存在'}), 404
             
-            result = manager.start_monitoring(community)
+            result = manager.start_monitoring(community, socketio=socketio)
             message = '监控已启动' if result else '监控启动失败（可能已在运行）'
             status = 'running' if result else manager.tasks.get(community_id).status if community_id in manager.tasks else 'idle'
             
@@ -1671,6 +1735,46 @@ def control_community_monitoring(community_id):
         
     except Exception as e:
         logger.error(f"控制监控失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/monitoring/start-all', methods=['POST'])
+def start_all_monitoring_route():
+    """启动所有活跃社区的监控"""
+    try:
+        from NicheEngine.monitoring_manager import MonitoringManager
+        
+        manager = MonitoringManager()
+        result = manager.start_all_monitoring(socketio=socketio)
+        
+        return jsonify({
+            'success': True,
+            'message': f'已启动 {result["started"]} 个社区的监控',
+            'result': result
+        })
+        
+    except Exception as e:
+        logger.error(f"批量启动监控失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/monitoring/stop-all', methods=['POST'])
+def stop_all_monitoring_route():
+    """停止所有监控任务"""
+    try:
+        from NicheEngine.monitoring_manager import MonitoringManager
+        
+        manager = MonitoringManager()
+        result = manager.stop_all_monitoring()
+        
+        return jsonify({
+            'success': True,
+            'message': f'已停止 {result["stopped"]} 个监控任务',
+            'result': result
+        })
+        
+    except Exception as e:
+        logger.error(f"批量停止监控失败: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 

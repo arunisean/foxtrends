@@ -184,6 +184,163 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"查询执行失败: {e}")
             raise
+    
+    # ========== Community CRUD Methods ==========
+    
+    def add_community(self, community) -> bool:
+        """添加社区"""
+        import json
+        try:
+            with self.engine.begin() as conn:
+                config_json = json.dumps(community.config) if community.config else None
+                conn.execute(text("""
+                    INSERT INTO communities (name, source_type, source_url, config, status)
+                    VALUES (:name, :source_type, :source_url, :config, :status)
+                """), {
+                    'name': community.name,
+                    'source_type': community.source_type,
+                    'source_url': community.source_url,
+                    'config': config_json,
+                    'status': community.status
+                })
+            return True
+        except Exception as e:
+            safe_log('error', f"添加社区失败: {e}")
+            return False
+    
+    def get_community_by_url(self, url: str):
+        """根据URL获取社区"""
+        import json
+        from NicheEngine.models import Community
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT * FROM communities WHERE source_url = :url
+                """), {'url': url}).fetchone()
+                
+                if result:
+                    return Community(
+                        id=result[0],
+                        name=result[1],
+                        source_type=result[2],
+                        source_url=result[3],
+                        config=json.loads(result[4]) if result[4] else None,
+                        status=result[5],
+                        created_at=result[10],
+                        updated_at=result[11]
+                    )
+                return None
+        except Exception as e:
+            safe_log('error', f"获取社区失败: {e}")
+            return None
+    
+    def get_all_communities(self):
+        """获取所有社区"""
+        import json
+        from NicheEngine.models import Community
+        try:
+            with self.engine.connect() as conn:
+                results = conn.execute(text("SELECT * FROM communities")).fetchall()
+                communities = []
+                for row in results:
+                    communities.append(Community(
+                        id=row[0],
+                        name=row[1],
+                        source_type=row[2],
+                        source_url=row[3],
+                        config=json.loads(row[4]) if row[4] else None,
+                        status=row[5],
+                        created_at=row[10],
+                        updated_at=row[11]
+                    ))
+                return communities
+        except Exception as e:
+            safe_log('error', f"获取社区列表失败: {e}")
+            return []
+    
+    def delete_community(self, community_id: int) -> bool:
+        """删除社区"""
+        try:
+            with self.engine.begin() as conn:
+                conn.execute(text("DELETE FROM communities WHERE id = :id"), {'id': community_id})
+            return True
+        except Exception as e:
+            safe_log('error', f"删除社区失败: {e}")
+            return False
+    
+    # ========== DemandSignal CRUD Methods ==========
+    
+    def add_signal(self, signal) -> bool:
+        """添加需求信号"""
+        import json
+        try:
+            with self.engine.begin() as conn:
+                metadata_json = json.dumps(signal.metadata) if signal.metadata else None
+                conn.execute(text("""
+                    INSERT INTO demand_signals 
+                    (community_id, signal_type, title, content, source_url, author, 
+                     sentiment_score, hotness_score, metadata)
+                    VALUES (:community_id, :signal_type, :title, :content, :source_url, 
+                            :author, :sentiment_score, :hotness_score, :metadata)
+                """), {
+                    'community_id': signal.community_id,
+                    'signal_type': signal.signal_type,
+                    'title': signal.title,
+                    'content': signal.content,
+                    'source_url': signal.source_url,
+                    'author': signal.author,
+                    'sentiment_score': signal.sentiment_score,
+                    'hotness_score': signal.hotness_score,
+                    'metadata': metadata_json
+                })
+            return True
+        except Exception as e:
+            safe_log('error', f"添加需求信号失败: {e}")
+            return False
+    
+    def get_signals_by_community(self, community_id: int, limit: int = 100):
+        """获取社区的需求信号"""
+        import json
+        from NicheEngine.models import DemandSignal
+        try:
+            with self.engine.connect() as conn:
+                results = conn.execute(text("""
+                    SELECT * FROM demand_signals 
+                    WHERE community_id = :community_id 
+                    ORDER BY created_at DESC 
+                    LIMIT :limit
+                """), {'community_id': community_id, 'limit': limit}).fetchall()
+                
+                signals = []
+                for row in results:
+                    signals.append(DemandSignal(
+                        id=row[0],
+                        community_id=row[1],
+                        signal_type=row[2],
+                        title=row[3],
+                        content=row[4],
+                        source_url=row[5],
+                        author=row[6],
+                        sentiment_score=row[7],
+                        hotness_score=row[8],
+                        metadata=json.loads(row[11]) if row[11] else None,
+                        created_at=row[12],
+                        extracted_at=row[13]
+                    ))
+                return signals
+        except Exception as e:
+            safe_log('error', f"获取需求信号失败: {e}")
+            return []
+    
+    def delete_signal(self, signal_id: int) -> bool:
+        """删除需求信号"""
+        try:
+            with self.engine.begin() as conn:
+                conn.execute(text("DELETE FROM demand_signals WHERE id = :id"), {'id': signal_id})
+            return True
+        except Exception as e:
+            safe_log('error', f"删除需求信号失败: {e}")
+            return False
 
 
 def build_database_url(async_mode: bool = False) -> str:

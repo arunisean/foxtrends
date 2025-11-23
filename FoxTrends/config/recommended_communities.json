@@ -1,0 +1,162 @@
+{
+  "international": [
+    {
+      "name": "Python Reddit",
+      "source_type": "reddit",
+      "source_url": "https://www.reddit.com/r/python/",
+      "description": "Python编程社区，讨论Python语言、库和最佳实践",
+      "tags": ["programming", "python", "development"],
+      "keywords": ["async", "django", "flask", "fastapi", "pandas"]
+    },
+    {
+      "name": "JavaScript Reddit",
+      "source_type": "reddit",
+      "source_url": "https://www.reddit.com/r/javascript/",
+      "description": "JavaScript开发社区",
+      "tags": ["programming", "javascript", "web"],
+      "keywords": ["react", "vue", "node", "typescript", "framework"]
+    },
+    {
+      "name": "Machine Learning Reddit",
+      "source_type": "reddit",
+      "source_url": "https://www.reddit.com/r/MachineLearning/",
+      "description": "机器学习研究与应用",
+      "tags": ["ai", "ml", "research"],
+      "keywords": ["deep learning", "neural network", "llm", "transformer"]
+    },
+    {
+      "name": "FastAPI GitHub",
+      "source_type": "github",
+      "source_url": "https://github.com/tiangolo/fastapi",
+      "description": "FastAPI框架 - 现代、快速的Python Web框架",
+      "tags": ["python", "web", "api"],
+      "keywords": ["bug", "feature", "performance", "async"]
+    },
+    {
+      "name": "React GitHub",
+      "source_type": "github",
+      "source_url": "https://github.com/facebook/react",
+      "description": "React - 用于构建用户界面的JavaScript库",
+      "tags": ["javascript", "ui", "framework"],
+      "keywords": ["bug", "feature", "hooks", "performance"]
+    },
+    {
+      "name": "PyTorch GitHub",
+      "source_type": "github",
+      "source_url": "https://github.com/pytorch/pytorch",
+      "description": "PyTorch - 深度学习框架",
+      "tags": ["ai", "ml", "python"],
+      "keywords": ["bug", "feature", "cuda", "training"]
+    },
+    {
+      "name": "HackerNews",
+      "source_type": "hackernews",
+      "source_url": "https://news.ycombinator.com",
+      "description": "技术新闻和讨论社区",
+      "tags": ["tech", "news", "startup"],
+      "keywords": ["ai", "startup", "programming", "security"]
+    },
+    {
+      "name": "Ethereum Research",
+      "source_type": "discourse",
+      "source_url": "https://ethresear.ch",
+      "description": "以太坊研究论坛",
+      "tags": ["blockchain", "ethereum", "research"],
+      "keywords": ["scaling", "consensus", "zk", "rollup"]
+    },
+    {
+      "name": "Rust Users Forum",
+      "source_type": "discourse",
+      "source_url": "https://users.rust-lang.org",
+      "description": "Rust编程语言用户论坛",
+      "tags": ["programming", "rust", "systems"],
+      "keywords": ["async", "performance", "memory", "safety"]
+    }
+  ],
+  "chinese": [
+    {
+      "name": "小红书",
+      "source_type": "xiaohongshu",
+      "source_url": "https://www.xiaohongshu.com",
+      "description": "生活方式分享平台，美妆、时尚、旅游等内容",
+      "tags": ["lifestyle", "fashion", "beauty", "chinese"],
+      "keywords": ["美妆", "穿搭", "旅游", "美食"],
+      "platform_code": "xhs",
+      "requires_login": true,
+      "supported": false,
+      "note": "⚠️ 暂不支持 - 需要配置MindSpider爬虫并完成登录"
+    },
+    {
+      "name": "抖音",
+      "source_type": "douyin",
+      "source_url": "https://www.douyin.com",
+      "description": "短视频分享平台",
+      "tags": ["video", "entertainment", "chinese"],
+      "keywords": ["热门", "搞笑", "美食", "科技"],
+      "platform_code": "dy",
+      "requires_login": true,
+      "supported": false,
+      "note": "⚠️ 暂不支持 - 需要配置MindSpider爬虫并完成登录"
+    },
+    {
+      "name": "快手",
+      "source_type": "kuaishou",
+      "source_url": "https://www.kuaishou.com",
+      "description": "短视频社交平台",
+      "tags": ["video", "social", "chinese"],
+      "keywords": ["热门", "生活", "娱乐"],
+      "platform_code": "ks",
+      "requires_login": true,
+      "supported": false,
+      "note": "⚠️ 暂不支持 - 需要配置MindSpider爬虫并完成登录"
+    },
+    {
+      "name": "B站",
+      "source_type": "bilibili",
+      "source_url": "https://www.bilibili.com",
+      "description": "视频弹幕网站，ACG、科技、知识分享",
+      "tags": ["video", "acg", "tech", "chinese"],
+      "keywords": ["科技", "编程", "游戏", "动画"],
+      "platform_code": "bili",
+      "requires_login": true,
+      "supported": false,
+      "note": "⚠️ 暂不支持 - 需要配置MindSpider爬虫并完成登录"
+    },
+    {
+      "name": "微博",
+      "source_type": "weibo",
+      "source_url": "https://weibo.com",
+      "description": "社交媒体平台，新闻、热点讨论",
+      "tags": ["social", "news", "chinese"],
+      "keywords": ["热搜", "新闻", "科技", "娱乐"],
+      "platform_code": "wb",
+      "requires_login": true,
+      "supported": false,
+      "note": "⚠️ 暂不支持 - 需要配置MindSpider爬虫并完成登录"
+    },
+    {
+      "name": "贴吧",
+      "source_type": "tieba",
+      "source_url": "https://tieba.baidu.com",
+      "description": "百度贴吧，兴趣社区",
+      "tags": ["forum", "community", "chinese"],
+      "keywords": ["讨论", "热门", "话题"],
+      "platform_code": "tieba",
+      "requires_login": true,
+      "supported": false,
+      "note": "⚠️ 暂不支持 - 需要配置MindSpider爬虫并完成登录"
+    },
+    {
+      "name": "知乎",
+      "source_type": "zhihu",
+      "source_url": "https://www.zhihu.com",
+      "description": "问答社区，知识分享平台",
+      "tags": ["qa", "knowledge", "chinese"],
+      "keywords": ["技术", "科学", "职场", "生活"],
+      "platform_code": "zhihu",
+      "requires_login": true,
+      "supported": false,
+      "note": "⚠️ 暂不支持 - 需要配置MindSpider爬虫并完成登录"
+    }
+  ]
+}

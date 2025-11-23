@@ -30,9 +30,12 @@ class DemandSignal:
     title: str = ""
     content: Optional[str] = None
     source_url: Optional[str] = None
+    content_hash: Optional[str] = None  # SHA256 hash for duplicate detection
     author: Optional[str] = None
     sentiment_score: Optional[float] = None  # -1.0 to 1.0
     hotness_score: Optional[float] = None  # 0.0 to 100.0
+    discussion_count: int = 0
+    participant_count: int = 0
     metadata: Optional[Dict[str, Any]] = None
     created_at: Optional[datetime] = None
     extracted_at: Optional[datetime] = None

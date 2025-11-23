@@ -47,7 +47,8 @@ def init_database():
                         last_collection_time TIMESTAMP,
                         total_signals INTEGER DEFAULT 0,
                         error_count INTEGER DEFAULT 0,
-                        monitoring_status VARCHAR(20) DEFAULT 'idle',
+                        duplicate_count INTEGER DEFAULT 0,
+                        monitoring_status VARCHAR(20) DEFAULT 'not_started',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
@@ -64,7 +65,8 @@ def init_database():
                         last_collection_time TIMESTAMP,
                         total_signals INTEGER DEFAULT 0,
                         error_count INTEGER DEFAULT 0,
-                        monitoring_status VARCHAR(20) DEFAULT 'idle',
+                        duplicate_count INTEGER DEFAULT 0,
+                        monitoring_status VARCHAR(20) DEFAULT 'not_started',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
@@ -81,7 +83,8 @@ def init_database():
                         last_collection_time TIMESTAMP NULL,
                         total_signals INT DEFAULT 0,
                         error_count INT DEFAULT 0,
-                        monitoring_status VARCHAR(20) DEFAULT 'idle',
+                        duplicate_count INT DEFAULT 0,
+                        monitoring_status VARCHAR(20) DEFAULT 'not_started',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                     )
@@ -99,6 +102,7 @@ def init_database():
                         title TEXT NOT NULL,
                         content TEXT,
                         source_url TEXT,
+                        content_hash VARCHAR(64),
                         author VARCHAR(255),
                         sentiment_score REAL,
                         hotness_score REAL,
@@ -119,6 +123,7 @@ def init_database():
                         title TEXT NOT NULL,
                         content TEXT,
                         source_url TEXT,
+                        content_hash VARCHAR(64),
                         author VARCHAR(255),
                         sentiment_score FLOAT,
                         hotness_score FLOAT,
@@ -138,6 +143,7 @@ def init_database():
                         title TEXT NOT NULL,
                         content TEXT,
                         source_url TEXT,
+                        content_hash VARCHAR(64),
                         author VARCHAR(255),
                         sentiment_score FLOAT,
                         hotness_score FLOAT,
@@ -209,11 +215,13 @@ def init_database():
                     CREATE TABLE IF NOT EXISTS agent_discussions (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         session_id VARCHAR(255) NOT NULL,
+                        demand_id INTEGER,
                         agent_name VARCHAR(50) NOT NULL,
                         message_type VARCHAR(20),
                         content TEXT NOT NULL,
-                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        metadata TEXT
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        metadata TEXT,
+                        FOREIGN KEY (demand_id) REFERENCES demand_signals(id)
                     )
                 """))
             elif dialect in ("postgresql", "postgres"):
@@ -221,10 +229,11 @@ def init_database():
                     CREATE TABLE IF NOT EXISTS agent_discussions (
                         id SERIAL PRIMARY KEY,
                         session_id VARCHAR(255) NOT NULL,
+                        demand_id INTEGER REFERENCES demand_signals(id),
                         agent_name VARCHAR(50) NOT NULL,
                         message_type VARCHAR(20),
                         content TEXT NOT NULL,
-                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         metadata JSONB
                     )
                 """))
@@ -233,11 +242,13 @@ def init_database():
                     CREATE TABLE IF NOT EXISTS agent_discussions (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         session_id VARCHAR(255) NOT NULL,
+                        demand_id INT,
                         agent_name VARCHAR(50) NOT NULL,
                         message_type VARCHAR(20),
                         content TEXT NOT NULL,
-                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        metadata JSON
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        metadata JSON,
+                        FOREIGN KEY (demand_id) REFERENCES demand_signals(id)
                     )
                 """))
             
@@ -355,6 +366,20 @@ def init_database():
             conn.execute(text("""
                 CREATE INDEX IF NOT EXISTS idx_agent_discussions_session 
                 ON agent_discussions(session_id)
+            """))
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_agent_discussions_demand 
+                ON agent_discussions(demand_id)
+            """))
+            
+            # demand_signals 额外索引
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_demand_signals_content_hash 
+                ON demand_signals(content_hash)
+            """))
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_demand_signals_url 
+                ON demand_signals(source_url)
             """))
             
             logger.info("✓ 创建索引完成")

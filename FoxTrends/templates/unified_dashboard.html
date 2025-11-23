@@ -442,7 +442,16 @@
             background: #5a6268;
         }
         
-        .btn-small {
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-small, .btn-sm {
             padding: 6px 12px;
             font-size: 12px;
         }
@@ -860,15 +869,12 @@
                         dbText.textContent = '数据库未连接';
                     }
                     
-                    // 系统状态 - 根据真实采集功能状态显示
+                    // 系统状态
                     const systemIndicator = document.getElementById('system-indicator');
                     const systemText = document.getElementById('system-status-text');
                     if (!data.database_connected) {
                         systemIndicator.className = 'status-indicator red';
                         systemText.textContent = 'OFFLINE';
-                    } else if (!data.real_crawler_available) {
-                        systemIndicator.className = 'status-indicator yellow';
-                        systemText.textContent = 'READY (采集功能未实现)';
                     } else {
                         systemIndicator.className = 'status-indicator green';
                         systemText.textContent = 'RUNNING';
@@ -991,6 +997,10 @@
                                 <span>🔥 信号: ${community.total_signals || 0}</span>
                                 <span>⏰ ${community.last_collection_time ? new Date(community.last_collection_time).toLocaleString('zh-CN') : '未采集'}</span>
                             </div>
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; gap: 8px;">
+                                <button class="btn btn-sm btn-secondary" onclick="viewCommunityDetails(${community.id})" style="flex: 1;">查看详情</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteCommunity(${community.id}, '${community.name}')" style="flex: 1;">删除</button>
+                            </div>
                         </div>
                     `).join('');
                 } else {
@@ -1035,19 +1045,95 @@
             window.location.href = `/demand/${id}`;
         }
         
-        // 知名社区模板
-        const popularCommunities = {
-            'reddit-0': { type: 'reddit', name: 'r/programming', url: 'https://reddit.com/r/programming', keywords: 'bug, feature, discussion' },
-            'reddit-1': { type: 'reddit', name: 'r/python', url: 'https://reddit.com/r/python', keywords: 'bug, feature, help' },
-            'reddit-2': { type: 'reddit', name: 'r/javascript', url: 'https://reddit.com/r/javascript', keywords: 'bug, feature, library' },
-            'reddit-3': { type: 'reddit', name: 'r/webdev', url: 'https://reddit.com/r/webdev', keywords: 'bug, feature, framework' },
-            'github-0': { type: 'github', name: 'fastapi/fastapi', url: 'https://github.com/fastapi/fastapi', keywords: 'bug, feature, issue' },
-            'github-1': { type: 'github', name: 'vercel/next.js', url: 'https://github.com/vercel/next.js', keywords: 'bug, feature, issue' },
-            'github-2': { type: 'github', name: 'facebook/react', url: 'https://github.com/facebook/react', keywords: 'bug, feature, issue' },
-            'github-3': { type: 'github', name: 'vuejs/vue', url: 'https://github.com/vuejs/vue', keywords: 'bug, feature, issue' },
-            'hackernews-0': { type: 'hackernews', name: 'HackerNews', url: 'https://news.ycombinator.com', keywords: 'startup, tech, programming' },
-            'custom-0': { type: 'discourse', name: 'Ethereum Research', url: 'https://ethresear.ch/', keywords: 'ethereum, research, proposal' }
+        // 查看社区详情
+        function viewCommunityDetails(id) {
+            // TODO: 实现社区详情页面
+            showNotification('社区详情功能开发中...', 'info');
+        }
+        
+        // 删除社区
+        async function deleteCommunity(id, name) {
+            // 显示确认对话框
+            const confirmed = await showConfirm(
+                '删除社区',
+                `确定要删除社区"${name}"吗？\n\n删除后将停止监控该社区，但已采集的数据不会被删除。`
+            );
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/communities/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('社区已删除', 'success');
+                    // 重新加载社区列表
+                    loadCommunities();
+                } else {
+                    showNotification('删除失败: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('删除社区失败:', error);
+                showNotification('删除失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 确认对话框
+        function showConfirm(title, message) {
+            return new Promise((resolve) => {
+                const dialog = document.getElementById('confirm-dialog');
+                const titleEl = document.getElementById('confirm-title');
+                const messageEl = document.getElementById('confirm-message');
+                const yesBtn = document.getElementById('confirm-yes');
+                const noBtn = document.getElementById('confirm-no');
+                
+                titleEl.textContent = title;
+                messageEl.textContent = message;
+                messageEl.style.whiteSpace = 'pre-line'; // 支持换行
+                
+                dialog.style.display = 'flex';
+                
+                const handleYes = () => {
+                    dialog.style.display = 'none';
+                    yesBtn.removeEventListener('click', handleYes);
+                    noBtn.removeEventListener('click', handleNo);
+                    resolve(true);
+                };
+                
+                const handleNo = () => {
+                    dialog.style.display = 'none';
+                    yesBtn.removeEventListener('click', handleYes);
+                    noBtn.removeEventListener('click', handleNo);
+                    resolve(false);
+                };
+                
+                yesBtn.addEventListener('click', handleYes);
+                noBtn.addEventListener('click', handleNo);
+            });
+        }
+        
+        // 推荐社区数据（从配置文件加载）
+        let recommendedCommunities = {
+            international: [],
+            chinese: []
         };
+        
+        // 加载推荐社区配置
+        async function loadRecommendedCommunities() {
+            try {
+                const response = await fetch('/api/recommended-communities');
+                if (response.ok) {
+                    recommendedCommunities = await response.json();
+                }
+            } catch (error) {
+                console.error('加载推荐社区失败:', error);
+            }
+        }
         
         function showAddCommunity() {
             document.getElementById('add-community-dialog').classList.add('show');
@@ -1059,20 +1145,35 @@
             document.getElementById('add-community-dialog').classList.remove('show');
         }
         
-        // 从知名社区快速填充
-        function fillCommunityFromPopular() {
+        // 从推荐社区快速填充
+        function fillCommunityFromRecommended() {
             const key = document.getElementById('popular-select').value;
             
-            if (key && popularCommunities[key]) {
-                const community = popularCommunities[key];
+            if (!key) return;
+            
+            const [category, index] = key.split('-');
+            let community = null;
+            
+            if (category === 'int') {
+                community = recommendedCommunities.international[parseInt(index)];
+            } else if (category === 'cn') {
+                community = recommendedCommunities.chinese[parseInt(index)];
+            }
+            
+            if (community) {
                 // 自动填充所有字段
-                document.getElementById('community-url').value = community.url;
-                document.getElementById('community-type').value = community.type;
+                document.getElementById('community-url').value = community.source_url;
+                document.getElementById('community-type').value = community.source_type;
                 document.getElementById('community-name').value = community.name;
-                document.getElementById('community-keywords').value = community.keywords;
+                document.getElementById('community-keywords').value = community.keywords.join(', ');
+                document.getElementById('community-description').value = community.description;
                 
-                // 显示提示
-                showNotification('已自动填充社区信息，您可以继续修改', 'info');
+                // 如果是中文社区，显示特殊提示
+                if (category === 'cn') {
+                    showNotification('⚠️ 中文社区需要配置MindSpider爬虫并登录。' + (community.note || ''), 'warning');
+                } else {
+                    showNotification('✅ 已自动填充社区信息，您可以继续修改', 'info');
+                }
             }
         }
         
@@ -1350,6 +1451,26 @@
                 setTimeout(() => notification.remove(), 300);
             }, 3000);
         }
+        
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 加载推荐社区配置
+            loadRecommendedCommunities();
+            
+            // 加载其他数据
+            loadStats();
+            loadCommunities();
+            loadDemands();
+            loadLogs();
+            
+            // 设置定时刷新
+            setInterval(() => {
+                loadStats();
+                loadCommunities();
+                loadDemands();
+                loadLogs();
+            }, 30000); // 每30秒刷新一次
+        });
     </script>
     
     <!-- 确认对话框 -->
@@ -1373,29 +1494,33 @@
             </div>
             <div class="modal-body">
                 <form id="add-community-form">
-                    <!-- 快速选择知名社区 -->
+                    <!-- 快速选择推荐社区 -->
                     <div class="form-group">
-                        <label class="form-label">快速选择知名社区（可选）</label>
-                        <select id="popular-select" class="form-select" onchange="fillCommunityFromPopular()">
-                            <option value="">-- 选择知名社区快速填充，或手动输入 --</option>
-                            <optgroup label="Reddit 社区">
-                                <option value="reddit-0">r/programming - 编程讨论</option>
-                                <option value="reddit-1">r/python - Python 开发</option>
-                                <option value="reddit-2">r/javascript - JavaScript 开发</option>
-                                <option value="reddit-3">r/webdev - Web 开发</option>
+                        <label class="form-label">🌟 快速选择推荐社区（可选）</label>
+                        <select id="popular-select" class="form-select" onchange="fillCommunityFromRecommended()">
+                            <option value="">-- 选择推荐社区快速填充，或手动输入 --</option>
+                            <optgroup label="🌍 国际社区">
+                                <option value="int-0">Python Reddit - Python编程社区</option>
+                                <option value="int-1">JavaScript Reddit - JavaScript开发社区</option>
+                                <option value="int-2">Machine Learning Reddit - 机器学习研究</option>
+                                <option value="int-3">FastAPI GitHub - FastAPI框架</option>
+                                <option value="int-4">React GitHub - React框架</option>
+                                <option value="int-5">PyTorch GitHub - PyTorch深度学习</option>
+                                <option value="int-6">HackerNews - 技术新闻社区</option>
+                                <option value="int-7">Ethereum Research - 以太坊研究论坛</option>
+                                <option value="int-8">Rust Users Forum - Rust用户论坛</option>
                             </optgroup>
-                            <optgroup label="GitHub 仓库">
-                                <option value="github-0">fastapi/fastapi - FastAPI 框架</option>
-                                <option value="github-1">vercel/next.js - Next.js 框架</option>
-                                <option value="github-2">facebook/react - React 框架</option>
-                                <option value="github-3">vuejs/vue - Vue.js 框架</option>
-                            </optgroup>
-                            <optgroup label="其他社区">
-                                <option value="hackernews-0">HackerNews - 科技新闻</option>
-                                <option value="custom-0">Ethereum Research - 以太坊研究</option>
+                            <optgroup label="🇨🇳 中文社区（暂不支持）">
+                                <option value="" disabled>小红书 - 生活方式分享平台 [待支持]</option>
+                                <option value="" disabled>抖音 - 短视频分享平台 [待支持]</option>
+                                <option value="" disabled>快手 - 短视频社交平台 [待支持]</option>
+                                <option value="" disabled>B站 - 视频弹幕网站 [待支持]</option>
+                                <option value="" disabled>微博 - 社交媒体平台 [待支持]</option>
+                                <option value="" disabled>贴吧 - 百度贴吧社区 [待支持]</option>
+                                <option value="" disabled>知乎 - 问答知识社区 [待支持]</option>
                             </optgroup>
                         </select>
-                        <small class="form-hint">选择后会自动填充下方信息，您也可以直接手动输入</small>
+                        <small class="form-hint">💡 选择后会自动填充下方信息。<span style="color: #999;">中文社区暂不支持，需要配置MindSpider爬虫</span></small>
                     </div>
                     
                     <div style="text-align: center; margin: 20px 0; color: #999; font-size: 14px; font-weight: 500;">

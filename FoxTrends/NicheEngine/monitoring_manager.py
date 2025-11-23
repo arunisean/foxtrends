@@ -51,13 +51,14 @@ class MonitoringManager:
         
         safe_log_info("MonitoringManager 初始化完成")
     
-    def start_monitoring(self, community: Community, db_manager=None) -> bool:
+    def start_monitoring(self, community: Community, db_manager=None, socketio=None) -> bool:
         """
         启动社区监控
         
         Args:
             community: 社区对象
             db_manager: 数据库管理器
+            socketio: SocketIO实例用于实时更新
             
         Returns:
             是否成功启动
@@ -72,7 +73,7 @@ class MonitoringManager:
                 return False
         
         # 创建新的监控任务
-        task = MonitoringTask(community, self, db_manager)
+        task = MonitoringTask(community, self, db_manager, socketio)
         self.tasks[community_id] = task
         
         # 在线程池中启动任务
@@ -274,13 +275,88 @@ class MonitoringManager:
         self._log_id_counter = 0
         safe_log_info("已清空监控日志")
     
+    def start_all_monitoring(self, db_manager=None, socketio=None) -> Dict[str, Any]:
+        """
+        启动所有活跃社区的监控
+        
+        Args:
+            db_manager: 数据库管理器
+            socketio: SocketIO实例用于实时更新
+            
+        Returns:
+            启动结果统计
+        """
+        from NicheEngine.engine import NicheEngine
+        
+        engine = NicheEngine(db_manager)
+        communities = engine.list_communities()
+        
+        # 只启动状态为active的社区
+        active_communities = [c for c in communities if c.status == 'active']
+        
+        started_count = 0
+        failed_count = 0
+        already_running = 0
+        
+        for community in active_communities:
+            if community.id in self.tasks and self.tasks[community.id].status == 'running':
+                already_running += 1
+                continue
+            
+            try:
+                if self.start_monitoring(community, db_manager, socketio):
+                    started_count += 1
+                else:
+                    failed_count += 1
+            except Exception as e:
+                safe_log_error(f"启动社区监控失败 ({community.name}): {e}")
+                failed_count += 1
+        
+        result = {
+            'total_communities': len(active_communities),
+            'started': started_count,
+            'failed': failed_count,
+            'already_running': already_running
+        }
+        
+        safe_log_info(f"批量启动监控完成: {result}")
+        return result
+    
+    def stop_all_monitoring(self) -> Dict[str, Any]:
+        """
+        停止所有监控任务
+        
+        Returns:
+            停止结果统计
+        """
+        stopped_count = 0
+        failed_count = 0
+        
+        for community_id in list(self.tasks.keys()):
+            try:
+                if self.stop_monitoring(community_id):
+                    stopped_count += 1
+                else:
+                    failed_count += 1
+            except Exception as e:
+                safe_log_error(f"停止监控失败 (ID: {community_id}): {e}")
+                failed_count += 1
+        
+        result = {
+            'total_tasks': len(self.tasks),
+            'stopped': stopped_count,
+            'failed': failed_count
+        }
+        
+        safe_log_info(f"批量停止监控完成: {result}")
+        return result
+    
     def shutdown(self):
         """关闭监控管理器"""
         safe_log_info("正在关闭 MonitoringManager...")
         
         # 停止所有任务
-        for community_id in list(self.tasks.keys()):
-            self.stop_monitoring(community_id)
+        self.stop_all_monitoring()
         
         # 关闭线程池
         self.executor.shutdown(wait=True)

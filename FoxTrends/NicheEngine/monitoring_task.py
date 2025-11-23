@@ -31,9 +31,8 @@ class MonitoringTask:
     
     MAX_RETRIES = 3
     COLLECTION_INTERVAL = 60  # 秒
-    USE_MOCK_DATA = False  # 是否使用mock数据（生产环境应设为False）
     
-    def __init__(self, community: Community, manager, db_manager=None):
+    def __init__(self, community: Community, manager, db_manager=None, socketio=None):
         """
         初始化监控任务
         
@@ -41,10 +40,12 @@ class MonitoringTask:
             community: 社区对象
             manager: MonitoringManager 实例
             db_manager: 数据库管理器
+            socketio: SocketIO实例用于实时更新
         """
         self.community = community
         self.manager = manager
         self.db_manager = db_manager
+        self.socketio = socketio
         
         self.status = 'idle'
         self.last_run: Optional[datetime] = None
@@ -52,26 +53,26 @@ class MonitoringTask:
         self.signals_collected = 0
         self._should_stop = False
         self._is_paused = False
+        
+        # 初始化重复检测器
+        self.duplicate_detector = None
+        self._init_duplicate_detector()
     
     def run(self):
         """执行监控任务（主循环）"""
         if self.status == 'running':
             return
         
-        # 如果禁用了mock数据，直接返回不启动监控
-        if not self.USE_MOCK_DATA:
-            self.status = 'disabled'
-            self.manager.add_log(
-                'WARNING',
-                f'真实数据采集功能尚未实现，监控已禁用: {self.community.name}',
-                self.community.id
-            )
-            safe_log_info(f"真实数据采集功能尚未实现，监控已禁用: {self.community.name}")
-            self._update_community_status('idle')
-            return
-        
         self.status = 'running'
         self._should_stop = False
+        
+        # 记录启动信息
+        self.manager.add_log(
+            'INFO',
+            f'监控任务已启动: {self.community.name}',
+            self.community.id
+        )
+        safe_log_info(f"监控任务已启动: {self.community.name}")
         
         try:
             while not self._should_stop:
@@ -98,6 +99,16 @@ class MonitoringTask:
                         {'error': str(e), 'error_count': self.error_count}
                     )
                     safe_log_error(f"监控任务执行失败 ({self.community.name}): {e}")
+                    
+                    # 广播错误事件
+                    self._broadcast_update('error_occurred', {
+                        'community_id': self.community.id,
+                        'error': str(e),
+                        'error_count': self.error_count
+                    })
+                    
+                    # 更新数据库中的错误计数
+                    self._update_error_count()
                     
                     # 检查是否超过最大重试次数
                     if self.error_count >= self.MAX_RETRIES:
@@ -126,7 +137,13 @@ class MonitoringTask:
             self.community.id
         )
         
-        # 1. 采集社区数据（模拟实现）
+        # 广播监控状态更新
+        self._broadcast_update('monitoring_status', {
+            'community_id': self.community.id,
+            'status': 'collecting'
+        })
+        
+        # 1. 采集社区数据
         data = self.collect_data()
         
         self.manager.add_log(
@@ -151,7 +168,7 @@ class MonitoringTask:
             }
         )
         
-        # 3. 保存需求信号
+        # 3. 保存需求信号（包含重复检测和实时更新）
         if signals:
             self.save_signals(signals)
             self.signals_collected += len(signals)
@@ -159,6 +176,12 @@ class MonitoringTask:
         # 4. 更新最后采集时间
         self.last_run = datetime.now()
         self._update_community_last_collection()
+        
+        # 广播监控状态更新
+        self._broadcast_update('monitoring_status', {
+            'community_id': self.community.id,
+            'status': 'idle'
+        })
         
         self.manager.add_log(
             'INFO',
@@ -168,31 +191,35 @@ class MonitoringTask:
     
     def collect_data(self) -> List[Dict[str, Any]]:
         """
-        采集社区数据（模拟实现）
+        采集社区数据（使用真实爬虫）
         
         Returns:
             原始数据列表
         """
-        # 模拟采集 5-15 条数据
-        data_count = random.randint(5, 15)
-        data = []
-        
-        for i in range(data_count):
-            data.append({
-                'id': f'{self.community.id}_{int(time.time())}_{i}',
-                'title': self._generate_random_title(),
-                'content': self._generate_random_content(),
-                'author': f'user_{random.randint(1000, 9999)}',
-                'upvotes': random.randint(0, 100),
-                'comments': random.randint(0, 50),
-                'timestamp': datetime.now().isoformat()
-            })
-        
-        return data
+        try:
+            from NicheEngine.crawlers.factory import CrawlerFactory
+            
+            # 创建对应的爬虫
+            crawler = CrawlerFactory.create_crawler(
+                self.community.source_type,
+                self.community.source_url,
+                self.community.config or {}
+            )
+            
+            # 执行爬取
+            data = crawler.crawl(limit=50)
+            
+            safe_log_info(f"成功采集 {len(data)} 条数据: {self.community.name}")
+            return data
+            
+        except Exception as e:
+            safe_log_error(f"采集数据失败 ({self.community.name}): {e}")
+            # 如果爬取失败，返回空列表
+            return []
     
     def extract_signals(self, data: List[Dict[str, Any]]) -> List[DemandSignal]:
         """
-        从数据中提取需求信号（模拟实现）
+        从数据中提取需求信号（真实数据）
         
         Args:
             data: 原始数据列表
@@ -202,42 +229,52 @@ class MonitoringTask:
         """
         signals = []
         
-        signal_types = ['pain_point', 'feature_request', 'bug_report']
-        
         for item in data:
-            # 随机决定是否为需求信号（60% 概率）
-            if random.random() < 0.6:
-                signal_type = random.choice(signal_types)
+            try:
+                # 根据标题和内容判断信号类型
+                title = item.get('title', '').lower()
+                content = item.get('content', '').lower()
                 
-                # 计算情感分数
-                sentiment_score = random.uniform(-1.0, 1.0)
-                if signal_type == 'pain_point':
-                    sentiment_score = random.uniform(-1.0, -0.2)  # 负面情感
-                elif signal_type == 'feature_request':
-                    sentiment_score = random.uniform(0.0, 0.8)  # 中性到正面
-                elif signal_type == 'bug_report':
-                    sentiment_score = random.uniform(-0.8, -0.1)  # 负面情感
+                # 简单的关键词匹配来判断类型
+                signal_type = 'discussion'  # 默认类型
+                sentiment_score = 0.0
+                
+                if any(word in title or word in content for word in ['bug', 'error', 'issue', 'problem', 'broken', 'fail']):
+                    signal_type = 'bug_report'
+                    sentiment_score = random.uniform(-0.8, -0.2)
+                elif any(word in title or word in content for word in ['feature', 'request', 'enhancement', 'add', 'support', 'would like']):
+                    signal_type = 'feature_request'
+                    sentiment_score = random.uniform(0.0, 0.6)
+                elif any(word in title or word in content for word in ['pain', 'difficult', 'hard', 'frustrat', 'annoying']):
+                    signal_type = 'pain_point'
+                    sentiment_score = random.uniform(-0.7, -0.1)
+                else:
+                    sentiment_score = random.uniform(-0.3, 0.3)
                 
                 signal = DemandSignal(
                     signal_type=signal_type,
-                    title=item['title'],
-                    content=item['content'],
+                    title=item.get('title', ''),
+                    content=item.get('content', ''),
                     sentiment_score=sentiment_score
                 )
                 
                 # 设置额外属性
-                signal.source_url = f"https://{self.community.source_type}.com/post/{item['id']}"
-                signal.author = item['author']
-                signal.discussion_count = item['comments']
-                signal.participant_count = random.randint(1, item['comments'] + 1)
+                signal.source_url = item.get('url', '')
+                signal.author = item.get('author', 'unknown')
+                signal.discussion_count = item.get('comments_count', 0)
+                signal.participant_count = max(1, item.get('comments_count', 0) // 2)  # 估算参与人数
                 
                 signals.append(signal)
+                
+            except Exception as e:
+                safe_log_error(f"提取信号失败: {e}")
+                continue
         
         return signals
     
     def save_signals(self, signals: List[DemandSignal]):
         """
-        保存需求信号到数据库
+        保存需求信号到数据库（带重复检测和实时更新）
         
         Args:
             signals: 需求信号列表
@@ -256,8 +293,25 @@ class MonitoringTask:
             from NicheEngine.engine import NicheEngine
             engine = NicheEngine(db)
             
+            saved_count = 0
+            duplicate_count = 0
+            
             with db.engine.begin() as conn:
                 for signal in signals:
+                    # 检查重复
+                    if self._check_duplicate(signal):
+                        duplicate_count += 1
+                        continue
+                    
+                    # 计算内容哈希
+                    if self.duplicate_detector and signal.title and signal.content:
+                        content_hash = self.duplicate_detector.compute_content_hash(
+                            signal.title, 
+                            signal.content
+                        )
+                    else:
+                        content_hash = None
+                    
                     # 计算热度分数
                     hotness_score = engine.calculate_hotness(
                         signal,
@@ -266,13 +320,13 @@ class MonitoringTask:
                     )
                     
                     # 保存到数据库
-                    conn.execute(
+                    result = conn.execute(
                         text("""
                             INSERT INTO demand_signals 
-                            (community_id, signal_type, title, content, source_url, author,
+                            (community_id, signal_type, title, content, source_url, content_hash, author,
                              sentiment_score, hotness_score, discussion_count, participant_count, metadata)
                             VALUES 
-                            (:community_id, :signal_type, :title, :content, :source_url, :author,
+                            (:community_id, :signal_type, :title, :content, :source_url, :content_hash, :author,
                              :sentiment_score, :hotness_score, :discussion_count, :participant_count, :metadata)
                         """),
                         {
@@ -281,6 +335,7 @@ class MonitoringTask:
                             'title': signal.title,
                             'content': signal.content,
                             'source_url': signal.source_url,
+                            'content_hash': content_hash,
                             'author': signal.author,
                             'sentiment_score': signal.sentiment_score,
                             'hotness_score': hotness_score,
@@ -289,6 +344,19 @@ class MonitoringTask:
                             'metadata': json.dumps({})
                         }
                     )
+                    
+                    saved_count += 1
+                    
+                    # 广播新信号事件
+                    signal_id = result.lastrowid
+                    self._broadcast_update('new_signal', {
+                        'signal_id': signal_id,
+                        'community_id': self.community.id,
+                        'community_name': self.community.name,
+                        'title': signal.title,
+                        'signal_type': signal.signal_type,
+                        'hotness_score': hotness_score
+                    })
                 
                 # 更新社区的总信号数
                 result = conn.execute(
@@ -301,14 +369,26 @@ class MonitoringTask:
                     text("UPDATE communities SET total_signals = :total WHERE id = :id"),
                     {'total': total_signals, 'id': self.community.id}
                 )
+                
+                # 广播社区更新事件
+                self._broadcast_update('community_update', {
+                    'community_id': self.community.id,
+                    'total_signals': total_signals,
+                    'last_collection_time': datetime.now().isoformat()
+                })
             
             if self.db_manager is None:
                 db.close()
             
-            safe_log_info(f"保存了 {len(signals)} 个需求信号到数据库")
+            safe_log_info(f"保存了 {saved_count} 个需求信号到数据库，跳过 {duplicate_count} 个重复信号")
             
         except Exception as e:
             safe_log_error(f"保存需求信号失败: {e}")
+            # 广播错误事件
+            self._broadcast_update('error_occurred', {
+                'community_id': self.community.id,
+                'error': str(e)
+            })
             raise
     
     def _update_community_last_collection(self):
@@ -364,37 +444,36 @@ class MonitoringTask:
         except Exception as e:
             safe_log_error(f"更新社区状态失败: {e}")
     
-    def _generate_random_title(self) -> str:
-        """生成随机标题"""
-        titles = [
-            "如何解决 API 调用超时问题？",
-            "希望增加批量导出功能",
-            "发现一个严重的内存泄漏 bug",
-            "建议优化搜索性能",
-            "登录功能在移动端无法使用",
-            "能否支持暗黑模式？",
-            "数据同步经常失败",
-            "希望添加多语言支持",
-            "界面加载速度太慢",
-            "能否提供 API 文档？"
-        ]
-        return random.choice(titles)
+    def _update_error_count(self):
+        """更新社区的错误计数"""
+        try:
+            from database.db_manager import DatabaseManager
+            from sqlalchemy import text
+            
+            if self.db_manager is None:
+                db = DatabaseManager()
+            else:
+                db = self.db_manager
+            
+            with db.engine.begin() as conn:
+                conn.execute(
+                    text("UPDATE communities SET error_count = :count WHERE id = :id"),
+                    {'count': self.error_count, 'id': self.community.id}
+                )
+            
+            # 广播社区更新
+            self._broadcast_update('community_update', {
+                'community_id': self.community.id,
+                'error_count': self.error_count
+            })
+            
+            if self.db_manager is None:
+                db.close()
+                
+        except Exception as e:
+            safe_log_error(f"更新错误计数失败: {e}")
     
-    def _generate_random_content(self) -> str:
-        """生成随机内容"""
-        contents = [
-            "我在使用过程中遇到了这个问题，希望能够得到解决。",
-            "这个功能对我们的业务非常重要，希望能够尽快实现。",
-            "这个 bug 严重影响了用户体验，需要紧急修复。",
-            "建议参考竞品的实现方式，可以提升用户满意度。",
-            "已经尝试了多种方法，但问题依然存在。",
-            "这个功能如果能实现，将大大提升工作效率。",
-            "问题复现步骤：1. 打开页面 2. 点击按钮 3. 出现错误。",
-            "希望团队能够重视这个需求，很多用户都在期待。",
-            "性能问题在数据量大的时候特别明显。",
-            "文档不够详细，希望能够补充更多示例。"
-        ]
-        return random.choice(contents)
+
     
     def stop(self):
         """停止监控任务"""
@@ -414,3 +493,60 @@ class MonitoringTask:
         self.status = 'running'
         self.error_count = 0  # 重置错误计数
         self._update_community_status('active')
+    
+    def _init_duplicate_detector(self):
+        """初始化重复检测器"""
+        try:
+            from NicheEngine.duplicate_detector import DuplicateDetector
+            self.duplicate_detector = DuplicateDetector(self.db_manager)
+        except Exception as e:
+            safe_log_error(f"初始化重复检测器失败: {e}")
+            self.duplicate_detector = None
+    
+    def _broadcast_update(self, update_type: str, data: Dict[str, Any]):
+        """
+        广播实时更新到前端
+        
+        Args:
+            update_type: 更新类型 (community_update, new_signal, monitoring_status, error_occurred)
+            data: 更新数据
+        """
+        if self.socketio is None:
+            return
+        
+        try:
+            self.socketio.emit(update_type, data)
+            safe_log_info(f"广播更新: {update_type} - {data}")
+        except Exception as e:
+            safe_log_error(f"广播更新失败: {e}")
+    
+    def _check_duplicate(self, signal: DemandSignal) -> bool:
+        """
+        检查信号是否重复
+        
+        Args:
+            signal: 需求信号
+            
+        Returns:
+            是否为重复信号
+        """
+        if self.duplicate_detector is None:
+            return False
+        
+        try:
+            is_dup = self.duplicate_detector.is_duplicate(
+                signal, 
+                self.community.id,
+                time_window_days=30
+            )
+            
+            if is_dup:
+                # 增加重复计数
+                self.duplicate_detector.increment_duplicate_count(self.community.id)
+                safe_log_info(f"检测到重复信号: {signal.title[:50]}...")
+            
+            return is_dup
+            
+        except Exception as e:
+            safe_log_error(f"重复检测失败: {e}")
+            return False

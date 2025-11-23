@@ -65,7 +65,6 @@ dependencies = [
     "praw>=7.7.1",              # Reddit API
     "PyGithub>=2.1.1",          # GitHub API
     "hackernews>=2.0.0",        # HackerNews API
-    "python-discourse>=1.4.0",  # Discourse Forums
     
     # Visualization
     "plotly>=5.17.0",

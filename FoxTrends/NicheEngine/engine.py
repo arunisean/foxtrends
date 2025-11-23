@@ -37,14 +37,15 @@ class NicheEngine:
         self.communities: Dict[int, Community] = {}
         self.monitoring_status: Dict[int, str] = {}
     
-    def add_community(self, name: str, source_type: str, config: Dict[str, Any]) -> Community:
+    def add_community(self, name: str, source_type: str, config: Dict[str, Any], source_url: str = None) -> Community:
         """
         添加监控社区
         
         Args:
             name: 社区名称
-            source_type: 数据源类型 (reddit, github, hackernews)
+            source_type: 数据源类型 (reddit, github, hackernews, discourse, etc.)
             config: 社区特定配置
+            source_url: 社区URL（可选）
             
         Returns:
             创建的社区对象
@@ -58,12 +59,13 @@ class NicheEngine:
         with self.db_manager.engine.begin() as conn:
             result = conn.execute(
                 text("""
-                    INSERT INTO communities (name, source_type, config, status)
-                    VALUES (:name, :source_type, :config, :status)
+                    INSERT INTO communities (name, source_type, source_url, config, status)
+                    VALUES (:name, :source_type, :source_url, :config, :status)
                 """),
                 {
                     'name': name,
                     'source_type': source_type,
+                    'source_url': source_url,
                     'config': config_json,
                     'status': 'active'
                 }
@@ -76,6 +78,7 @@ class NicheEngine:
         community = Community(
             name=name,
             source_type=source_type,
+            source_url=source_url,
             config=config,
             status='active'
         )

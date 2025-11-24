@@ -91,13 +91,16 @@
 - [x] 5. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 6. Implement AgentOrchestrator Component
-  - Create AgentOrchestrator class
-  - Implement analyze_signal() method to call all three agents
-  - Implement initiate_forum_discussion() method
-  - Implement store_discussion() method with demand_id linking
-  - Implement get_discussion_summary() method
-  - Integrate with ForumEngine for agent discussions
+- [x] 6. Implement AgentOrchestrator Component
+
+
+
+  - Create AgentOrchestrator class in FoxTrends/NicheEngine/agent_orchestrator.py
+  - Implement analyze_signal() method to call all three agents (CommunityInsightAgent, ContentAnalysisAgent, TrendDiscoveryAgent)
+  - Implement initiate_forum_discussion() method using ForumEngine
+  - Implement store_discussion() method with demand_id linking to agent_discussions table
+  - Implement get_discussion_summary() method to extract consensus
+  - Add error handling and retry logic for agent failures
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8_
 
 - [ ]* 6.1 Write property test for agent analysis trigger
@@ -120,21 +123,39 @@
   - **Property 18: Discussion produces summary**
   - **Validates: Requirements 6.7**
 
-- [ ] 7. Integrate AgentOrchestrator with MonitoringTask
-  - Add agent analysis trigger after signal collection
-  - Handle agent analysis errors gracefully
-  - Log agent analysis progress
-  - Update signal metadata with analysis results
+- [x] 7. Integrate AgentOrchestrator with MonitoringTask
+
+
+
+  - Import AgentOrchestrator in monitoring_task.py
+  - Add _trigger_agent_analysis() method call after successful signal save
+  - Implement async/background execution to avoid blocking monitoring
+  - Add error handling to prevent agent failures from stopping monitoring
+  - Log agent analysis progress to monitoring logs
+  - Update signal metadata with analysis_status field
   - _Requirements: 6.1_
 
-- [ ] 8. Implement ReportGenerator Component
-  - Create ReportGenerator class
+- [x] 8. Implement ReportGenerator Component
+
+
+
+  - Create ReportGenerator class in FoxTrends/NicheEngine/report_generator.py
   - Implement generate_single_demand_report() method
+    - Query demand signal details from database
+    - Query agent discussions linked to demand_id
+    - Query related signals based on similarity
+    - Generate HTML using Jinja2 template
+    - Include sentiment charts using Plotly
+    - Save to demand_reports table
   - Implement generate_time_range_report() method
-  - Create HTML report templates
-  - Implement data gathering for reports
-  - Implement visualization generation (charts)
-  - Implement report persistence to demand_reports table
+    - Aggregate signals within date range
+    - Calculate trend statistics (growth rate, hotness changes)
+    - Identify top pain points and feature requests
+    - Generate community-level breakdowns
+    - Include agent consensus insights
+    - Generate HTML with interactive charts
+    - Save to demand_reports table
+  - Create HTML templates in FoxTrends/templates/reports/
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9_
 
 - [ ]* 8.1 Write property test for single demand report completeness
@@ -193,26 +214,39 @@
   - **Property 32: Time-range report is persisted**
   - **Validates: Requirements 8.9**
 
-- [ ] 9. Add Flask API Endpoints for Reports
-  - Add POST /api/demands/{id}/report endpoint for single demand reports
-  - Add POST /api/reports/time-range endpoint for time-range reports
-  - Add GET /api/reports/{id} endpoint to retrieve reports
-  - Add error handling for report generation failures
+- [x] 9. Add Flask API Endpoints for Reports
+
+
+
+  - Add POST /api/demands/<demand_id>/report endpoint in app.py
+    - Accept demand_id parameter
+    - Call ReportGenerator.generate_single_demand_report()
+    - Return report_id and download URL
+  - Add POST /api/reports/time-range endpoint in app.py
+    - Accept start_date, end_date, community_ids parameters
+    - Call ReportGenerator.generate_time_range_report()
+    - Return report_id and download URL
+  - Add GET /api/reports/<report_id> endpoint in app.py
+    - Query report from demand_reports table
+    - Return report metadata and HTML content
+  - Add error handling for missing demands, invalid dates, generation failures
   - _Requirements: 7.1, 8.1_
 
-- [x] 10. Update Frontend Dashboard
-  - Add WebSocket connection handling
-  - Update community cards to show real-time updates
-  - Replace "Details" button with "Start" and "Stop" buttons
-  - Add global "Start All" and "Stop All" buttons
-  - Add "Generate Report" button for single demands
-  - Add "Generate Time-Range Report" form
-  - Update UI to show monitoring status clearly
-  - Handle WebSocket reconnection on connection loss
-  - _Requirements: 1.1, 1.2, 1.3, 1.4, 3.2, 3.4, 3.5, 3.6, 4.1, 4.2, 4.3, 4.4, 4.5_
+- [ ] 10. Update Frontend Dashboard for Report Generation
+
+
+  - Add "Generate Report" button to demand detail page
+  - Add "Generate Time-Range Report" form to analysis page
+  - Implement report generation API calls with loading states
+  - Display report download links or open in new tab
+  - Add error handling and user feedback for report generation
+  - _Requirements: 7.1, 8.1_
 
 - [ ] 11. Checkpoint - Ensure all tests pass
-  - Ensure all tests pass, ask the user if questions arise.
+  - Run all existing tests to ensure no regressions
+  - Verify agent orchestration works end-to-end
+  - Verify report generation produces valid HTML
+  - Ask the user if questions arise
 
 - [ ] 12. Integration and End-to-End Testing
   - Test complete monitoring flow with real-time updates
@@ -225,8 +259,8 @@
   - _Requirements: All_
 
 - [ ] 13. Documentation and Deployment
-  - Update README with new features
-  - Document API endpoints
+  - Update FoxTrends/README.md with new features
+  - Document API endpoints in FoxTrends/docs/API.md
   - Document WebSocket events
   - Document report generation usage
   - Update database migration instructions

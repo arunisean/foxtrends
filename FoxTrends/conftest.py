@@ -80,18 +80,27 @@ def reset_config_after_test():
 @pytest.fixture
 def app():
     """创建 Flask 应用实例用于测试"""
-    # 导入应用
-    import app as flask_app
+    # 确保导入 FoxTrends 的 app 模块
+    # 使用 importlib 明确从当前目录导入
+    import importlib.util
+    import os
+    
+    app_path = os.path.join(os.path.dirname(__file__), 'app.py')
+    spec = importlib.util.spec_from_file_location("foxtrends_app", app_path)
+    flask_app_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(flask_app_module)
+    
+    flask_app = flask_app_module.app
     
     # 配置测试模式
-    flask_app.app.config['TESTING'] = True
-    flask_app.app.config['WTF_CSRF_ENABLED'] = False
+    flask_app.config['TESTING'] = True
+    flask_app.config['WTF_CSRF_ENABLED'] = False
     
     # 初始化数据库
     from database.init_database import init_database
     init_database()
     
-    yield flask_app.app
+    yield flask_app
     
     # 清理
 

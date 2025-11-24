@@ -137,7 +137,7 @@ class TestDashboardAPI:
 
 
 @pytest.fixture
-def sample_demand(db_session):
+def sample_demand():
     """创建示例需求数据"""
     from database.db_manager import DatabaseManager
     
@@ -208,15 +208,4 @@ def sample_demand(db_session):
             db.close()
 
 
-@pytest.fixture
-def client(app):
-    """创建测试客户端"""
-    return app.test_client()
-
-
-@pytest.fixture
-def app():
-    """创建测试应用"""
-    from app import app as flask_app
-    flask_app.config['TESTING'] = True
-    return flask_app
+# Fixtures are defined in conftest.py

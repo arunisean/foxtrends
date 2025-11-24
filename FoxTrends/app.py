@@ -1837,6 +1837,161 @@ def get_community_stats(community_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/api/monitoring/status')
+def get_monitoring_status():
+    """获取所有监控任务的资源使用状态"""
+    try:
+        from NicheEngine.monitoring_manager import MonitoringManager
+        from config import settings
+        
+        manager = MonitoringManager()
+        
+        tasks_status = []
+        for community_id, task in manager.tasks.items():
+            tasks_status.append({
+                'community_id': community_id,
+                'community_name': task.community.name,
+                'status': task.status,
+                'collection_cycles': task.collection_cycles,
+                'max_collection_cycles': task.MAX_COLLECTION_CYCLES,
+                'signals_collected': task.signals_collected,
+                'max_signals_per_session': task.MAX_SIGNALS_PER_SESSION,
+                'agent_analysis_enabled': task.enable_agent_analysis,
+                'agent_analysis_count': 0,  # TODO: 实现Agent分析计数
+                'error_count': task.error_count,
+                'last_run': task.last_run.isoformat() if task.last_run else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'tasks': tasks_status,
+            'global_config': {
+                'max_collection_cycles': settings.MAX_COLLECTION_CYCLES,
+                'max_signals_per_session': settings.MAX_SIGNALS_PER_SESSION,
+                'collection_interval': settings.COLLECTION_INTERVAL,
+                'agent_analysis_enabled': settings.ENABLE_AGENT_ANALYSIS
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"获取监控状态失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ==================== 报告生成 API ====================
+
+@app.route('/api/demands/<int:demand_id>/report', methods=['POST'])
+def generate_demand_report(demand_id):
+    """生成单个需求的分析报告"""
+    try:
+        from NicheEngine.report_generator import ReportGenerator
+        
+        generator = ReportGenerator()
+        report_id, report_path = generator.generate_single_demand_report(demand_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '报告生成成功',
+            'report_id': report_id,
+            'report_url': f'/reports/{Path(report_path).name}'
+        })
+        
+    except Exception as e:
+        logger.error(f"生成需求报告失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/reports/time-range', methods=['POST'])
+def generate_time_range_report():
+    """生成时间范围报告"""
+    try:
+        from NicheEngine.report_generator import ReportGenerator
+        from datetime import datetime
+        
+        data = request.get_json()
+        
+        # 解析日期
+        start_date_str = data.get('start_date')
+        end_date_str = data.get('end_date')
+        community_ids = data.get('community_ids')  # 可选
+        
+        if not start_date_str or not end_date_str:
+            return jsonify({'success': False, 'message': '缺少开始或结束日期'}), 400
+        
+        try:
+            start_date = datetime.fromisoformat(start_date_str)
+            end_date = datetime.fromisoformat(end_date_str)
+        except ValueError:
+            return jsonify({'success': False, 'message': '日期格式错误，请使用 ISO 格式'}), 400
+        
+        generator = ReportGenerator()
+        report_id, report_path = generator.generate_time_range_report(
+            start_date, 
+            end_date, 
+            community_ids
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': '报告生成成功',
+            'report_id': report_id,
+            'report_url': f'/reports/{Path(report_path).name}'
+        })
+        
+    except Exception as e:
+        logger.error(f"生成时间范围报告失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/reports/<int:report_id>', methods=['GET'])
+def get_report(report_id):
+    """获取报告详情"""
+    try:
+        from database.db_manager import DatabaseManager
+        from sqlalchemy import text
+        import json
+        
+        db = DatabaseManager()
+        
+        with db.engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    SELECT id, title, report_type, html_content, 
+                           demand_signals, communities, generated_by, created_at
+                    FROM demand_reports
+                    WHERE id = :report_id
+                """),
+                {'report_id': report_id}
+            )
+            
+            row = result.fetchone()
+            
+            if not row:
+                return jsonify({'success': False, 'message': '报告不存在'}), 404
+            
+            report = {
+                'id': row[0],
+                'title': row[1],
+                'report_type': row[2],
+                'html_content': row[3],
+                'demand_signals': json.loads(row[4]) if row[4] else [],
+                'communities': json.loads(row[5]) if row[5] else [],
+                'generated_by': row[6],
+                'created_at': row[7].isoformat() if row[7] else None
+            }
+        
+        db.close()
+        
+        return jsonify({
+            'success': True,
+            'report': report
+        })
+        
+    except Exception as e:
+        logger.error(f"获取报告失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 if __name__ == '__main__':
     HOST = settings.HOST
     PORT = settings.PORT

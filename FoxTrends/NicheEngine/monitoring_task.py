@@ -16,6 +16,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from NicheEngine.models import Community, DemandSignal
 from utils.safe_logger import safe_log_info, safe_log_error
+from config import settings
 
 
 class MonitoringTask:
@@ -27,12 +28,17 @@ class MonitoringTask:
     - 提取需求信号
     - 更新监控状态
     - 报告错误和异常
+    - 触发Agent分析
     """
     
     MAX_RETRIES = 3
-    COLLECTION_INTERVAL = 60  # 秒
+    # 从配置文件读取资源控制参数
+    COLLECTION_INTERVAL = settings.COLLECTION_INTERVAL  # 秒
+    MAX_COLLECTION_CYCLES = settings.MAX_COLLECTION_CYCLES  # 最大采集周期数（0表示不限制）
+    MAX_SIGNALS_PER_SESSION = settings.MAX_SIGNALS_PER_SESSION  # 单次会话最大采集信号数（0表示不限制）
     
-    def __init__(self, community: Community, manager, db_manager=None, socketio=None):
+    def __init__(self, community: Community, manager, db_manager=None, socketio=None, 
+                 enable_agent_analysis: bool = None):
         """
         初始化监控任务
         
@@ -41,22 +47,31 @@ class MonitoringTask:
             manager: MonitoringManager 实例
             db_manager: 数据库管理器
             socketio: SocketIO实例用于实时更新
+            enable_agent_analysis: 是否启用Agent分析（默认True）
         """
         self.community = community
         self.manager = manager
         self.db_manager = db_manager
         self.socketio = socketio
+        # 如果未指定，则从配置文件读取
+        self.enable_agent_analysis = enable_agent_analysis if enable_agent_analysis is not None else settings.ENABLE_AGENT_ANALYSIS
         
         self.status = 'idle'
         self.last_run: Optional[datetime] = None
         self.error_count = 0
         self.signals_collected = 0
+        self.collection_cycles = 0  # 采集周期计数
         self._should_stop = False
         self._is_paused = False
         
         # 初始化重复检测器
         self.duplicate_detector = None
         self._init_duplicate_detector()
+        
+        # 初始化Agent协调器（可选）
+        self.agent_orchestrator = None
+        if self.enable_agent_analysis:
+            self._init_agent_orchestrator()
     
     def run(self):
         """执行监控任务（主循环）"""
@@ -65,11 +80,12 @@ class MonitoringTask:
         
         self.status = 'running'
         self._should_stop = False
+        self.collection_cycles = 0
         
         # 记录启动信息
         self.manager.add_log(
             'INFO',
-            f'监控任务已启动: {self.community.name}',
+            f'监控任务已启动: {self.community.name} (最大周期: {self.MAX_COLLECTION_CYCLES}, 最大信号: {self.MAX_SIGNALS_PER_SESSION})',
             self.community.id
         )
         safe_log_info(f"监控任务已启动: {self.community.name}")
@@ -80,9 +96,22 @@ class MonitoringTask:
                     time.sleep(1)
                     continue
                 
+                # 检查是否达到资源限制
+                if self._should_stop_due_to_limits():
+                    safe_log_info(f"监控任务达到资源限制，自动停止: {self.community.name}")
+                    self.manager.add_log(
+                        'INFO',
+                        f'监控任务达到资源限制，自动停止 (周期: {self.collection_cycles}, 信号: {self.signals_collected})',
+                        self.community.id
+                    )
+                    break
+                
                 try:
                     # 执行一次数据采集
                     self._run_once()
+                    
+                    # 增加周期计数
+                    self.collection_cycles += 1
                     
                     # 重置错误计数
                     self.error_count = 0
@@ -357,6 +386,20 @@ class MonitoringTask:
                         'signal_type': signal.signal_type,
                         'hotness_score': hotness_score
                     })
+                    
+                    # 触发Agent分析（异步，不阻塞）
+                    signal_data_for_analysis = {
+                        'title': signal.title,
+                        'content': signal.content,
+                        'signal_type': signal.signal_type,
+                        'source_url': signal.source_url,
+                        'author': signal.author,
+                        'sentiment_score': signal.sentiment_score,
+                        'hotness_score': hotness_score,
+                        'discussion_count': signal.discussion_count,
+                        'participant_count': signal.participant_count
+                    }
+                    self._trigger_agent_analysis(signal_id, signal_data_for_analysis)
                 
                 # 更新社区的总信号数
                 result = conn.execute(
@@ -550,3 +593,78 @@ class MonitoringTask:
         except Exception as e:
             safe_log_error(f"重复检测失败: {e}")
             return False
+    
+    def _init_agent_orchestrator(self):
+        """初始化Agent协调器"""
+        try:
+            from NicheEngine.agent_orchestrator import AgentOrchestrator
+            self.agent_orchestrator = AgentOrchestrator(self.db_manager)
+            safe_log_info(f"Agent协调器初始化成功: {self.community.name}")
+        except Exception as e:
+            safe_log_error(f"Agent协调器初始化失败: {e}")
+            self.agent_orchestrator = None
+    
+    def _should_stop_due_to_limits(self) -> bool:
+        """
+        检查是否应该因为资源限制而停止
+        
+        Returns:
+            是否应该停止
+        """
+        # 检查周期限制（0表示不限制）
+        if self.MAX_COLLECTION_CYCLES > 0 and self.collection_cycles >= self.MAX_COLLECTION_CYCLES:
+            return True
+        
+        # 检查信号数量限制（0表示不限制）
+        if self.MAX_SIGNALS_PER_SESSION > 0 and self.signals_collected >= self.MAX_SIGNALS_PER_SESSION:
+            return True
+        
+        return False
+    
+    def _trigger_agent_analysis(self, signal_id: int, signal_data: Dict[str, Any]):
+        """
+        触发Agent分析（异步执行，不阻塞监控）
+        
+        Args:
+            signal_id: 需求信号ID
+            signal_data: 需求信号数据
+        """
+        if not self.enable_agent_analysis or self.agent_orchestrator is None:
+            return
+        
+        try:
+            # 在后台线程中执行Agent分析，避免阻塞监控
+            import threading
+            
+            def analyze_in_background():
+                try:
+                    safe_log_info(f"开始Agent分析: 信号 {signal_id}")
+                    
+                    # 1. 调用三个Agent进行分析
+                    analysis_results = self.agent_orchestrator.analyze_signal(signal_id, signal_data)
+                    
+                    if analysis_results.get('success'):
+                        safe_log_info(f"Agent分析完成: 信号 {signal_id}")
+                        
+                        # 2. 发起论坛讨论（可选）
+                        session_id = self.agent_orchestrator.initiate_forum_discussion(
+                            signal_id, 
+                            analysis_results
+                        )
+                        
+                        # 3. 存储讨论记录
+                        self.agent_orchestrator.store_discussion(session_id, signal_id)
+                        
+                        safe_log_info(f"Agent分析流程完成: 信号 {signal_id}, 会话 {session_id}")
+                    else:
+                        safe_log_error(f"Agent分析失败: 信号 {signal_id}")
+                        
+                except Exception as e:
+                    safe_log_error(f"Agent分析异常: 信号 {signal_id}, 错误: {e}")
+            
+            # 启动后台线程
+            thread = threading.Thread(target=analyze_in_background, daemon=True)
+            thread.start()
+            
+        except Exception as e:
+            safe_log_error(f"触发Agent分析失败: {e}")

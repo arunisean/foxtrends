@@ -55,15 +55,4 @@ class TestSystemIntegration:
         assert 'starting' in data
 
 
-@pytest.fixture
-def client(app):
-    """创建测试客户端"""
-    return app.test_client()
-
-
-@pytest.fixture
-def app():
-    """创建测试应用"""
-    from app import app as flask_app
-    flask_app.config['TESTING'] = True
-    return flask_app
+# Fixtures are defined in conftest.py

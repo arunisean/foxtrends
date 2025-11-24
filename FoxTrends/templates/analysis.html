@@ -494,6 +494,225 @@
         .time-range-btn:hover:not(.active) {
             color: #333;
         }
+        
+        /* Modal Dialog Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.2s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal-dialog {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: auto;
+            animation: slideUp 0.3s;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .modal-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        
+        .modal-close:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .modal-body {
+            padding: 25px;
+        }
+        
+        .modal-footer {
+            padding: 15px 25px;
+            border-top: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .form-input, .form-select {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+        
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .form-hint {
+            display: block;
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        .form-select[multiple] {
+            min-height: 120px;
+        }
+        
+        /* Loading State */
+        .btn-loading {
+            position: relative;
+            color: transparent !important;
+            pointer-events: none;
+        }
+        
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            top: 50%;
+            left: 50%;
+            margin-left: -8px;
+            margin-top: -8px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.6s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Success/Error Messages */
+        .toast {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 1001;
+            animation: slideInRight 0.3s;
+            max-width: 400px;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .toast-success {
+            border-left: 4px solid #28a745;
+        }
+        
+        .toast-error {
+            border-left: 4px solid #dc3545;
+        }
+        
+        .toast-icon {
+            font-size: 24px;
+        }
+        
+        .toast-content {
+            flex: 1;
+        }
+        
+        .toast-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #333;
+        }
+        
+        .toast-message {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .toast-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+        }
     </style>
 </head>
 <body>
@@ -522,7 +741,18 @@
                     <button class="time-range-btn" data-range="7" onclick="setTimeRange(7)">7天</button>
                     <button class="time-range-btn active" data-range="30" onclick="setTimeRange(30)">30天</button>
                     <button class="time-range-btn" data-range="90" onclick="setTimeRange(90)">90天</button>
+                    <button class="time-range-btn" data-range="custom" onclick="toggleCustomDateRange()">自定义</button>
                 </div>
+            </div>
+            
+            <div class="filter-group" id="custom-date-range" style="display: none;">
+                <label class="filter-label">开始日期</label>
+                <input type="date" id="start-date-filter" class="filter-input" onchange="applyCustomDateRange()">
+            </div>
+            
+            <div class="filter-group" id="custom-date-range-end" style="display: none;">
+                <label class="filter-label">结束日期</label>
+                <input type="date" id="end-date-filter" class="filter-input" onchange="applyCustomDateRange()">
             </div>
             
             <div class="filter-group">
@@ -544,7 +774,14 @@
             
             <div class="filter-group" style="margin-left: auto;">
                 <label class="filter-label">&nbsp;</label>
-                <button class="btn btn-primary" onclick="exportData()">📊 导出数据</button>
+                <button class="btn btn-primary" onclick="generateTimeRangeReportFromFilters()" id="generate-report-btn">
+                    📄 生成时间范围报告
+                </button>
+            </div>
+            
+            <div class="filter-group">
+                <label class="filter-label">&nbsp;</label>
+                <button class="btn btn-secondary" onclick="exportData()">📊 导出数据</button>
             </div>
         </div>
         
@@ -1019,6 +1256,166 @@
         
         function exportData() {
             alert('导出功能开发中...');
+        }
+        
+        // Toggle custom date range
+        function toggleCustomDateRange() {
+            const customDateRange = document.getElementById('custom-date-range');
+            const customDateRangeEnd = document.getElementById('custom-date-range-end');
+            const isVisible = customDateRange.style.display !== 'none';
+            
+            if (isVisible) {
+                customDateRange.style.display = 'none';
+                customDateRangeEnd.style.display = 'none';
+                // Reset to default 30 days
+                setTimeRange(30);
+            } else {
+                customDateRange.style.display = 'flex';
+                customDateRangeEnd.style.display = 'flex';
+                
+                // Set default dates (last 30 days)
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setDate(startDate.getDate() - 30);
+                
+                document.getElementById('start-date-filter').value = startDate.toISOString().split('T')[0];
+                document.getElementById('end-date-filter').value = endDate.toISOString().split('T')[0];
+                
+                // Update button state
+                document.querySelectorAll('.time-range-btn[data-range]').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.range === 'custom');
+                });
+            }
+        }
+        
+        // Apply custom date range
+        function applyCustomDateRange() {
+            const startDate = document.getElementById('start-date-filter').value;
+            const endDate = document.getElementById('end-date-filter').value;
+            
+            if (startDate && endDate) {
+                // Validate date range
+                if (new Date(startDate) > new Date(endDate)) {
+                    showToast('error', '日期范围无效', '开始日期不能晚于结束日期');
+                    return;
+                }
+                
+                // Calculate days difference
+                const days = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24));
+                currentTimeRange = days;
+                
+                // Reload data
+                loadMetrics();
+                loadTrendChart();
+                loadPainPoints();
+                loadInsights();
+            }
+        }
+        
+        // Generate time-range report from current filters
+        async function generateTimeRangeReportFromFilters() {
+            const btn = document.getElementById('generate-report-btn');
+            
+            // Get date range
+            let startDate, endDate;
+            const customDateRange = document.getElementById('custom-date-range');
+            
+            if (customDateRange.style.display !== 'none') {
+                // Use custom date range
+                startDate = document.getElementById('start-date-filter').value;
+                endDate = document.getElementById('end-date-filter').value;
+                
+                if (!startDate || !endDate) {
+                    showToast('error', '日期范围无效', '请选择开始和结束日期');
+                    return;
+                }
+                
+                // Validate date range
+                if (new Date(startDate) > new Date(endDate)) {
+                    showToast('error', '日期范围无效', '开始日期不能晚于结束日期');
+                    return;
+                }
+            } else {
+                // Use preset time range
+                const endDateObj = new Date();
+                const startDateObj = new Date();
+                startDateObj.setDate(startDateObj.getDate() - currentTimeRange);
+                
+                startDate = startDateObj.toISOString().split('T')[0];
+                endDate = endDateObj.toISOString().split('T')[0];
+            }
+            
+            // Get community filter
+            const communityId = document.getElementById('community-filter').value;
+            const communityIds = communityId ? [parseInt(communityId)] : null;
+            
+            // Show loading state
+            btn.classList.add('btn-loading');
+            btn.disabled = true;
+            
+            try {
+                // Convert to ISO format with time
+                const startDateTime = new Date(startDate).toISOString();
+                const endDateTime = new Date(endDate + 'T23:59:59').toISOString();
+                
+                const response = await fetch('/api/reports/time-range', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        start_date: startDateTime,
+                        end_date: endDateTime,
+                        community_ids: communityIds
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('success', '报告生成成功', '正在打开报告...');
+                    // Open report in new tab
+                    setTimeout(() => {
+                        window.open(data.report_url, '_blank');
+                    }, 500);
+                } else {
+                    showToast('error', '报告生成失败', data.message || '请稍后重试');
+                }
+            } catch (error) {
+                console.error('生成报告失败:', error);
+                showToast('error', '报告生成失败', '网络错误，请检查连接');
+            } finally {
+                // Remove loading state
+                btn.classList.remove('btn-loading');
+                btn.disabled = false;
+            }
+        }
+        
+        // Show toast notification
+        function showToast(type, title, message) {
+            const icon = type === 'success' ? '✓' : '✕';
+            const toastClass = type === 'success' ? 'toast-success' : 'toast-error';
+            
+            const toast = document.createElement('div');
+            toast.className = `toast ${toastClass}`;
+            toast.innerHTML = `
+                <div class="toast-icon">${icon}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.style.animation = 'slideInRight 0.3s reverse';
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, 5000);
         }
     </script>
 </body>

@@ -232,37 +232,42 @@
   - Add error handling for missing demands, invalid dates, generation failures
   - _Requirements: 7.1, 8.1_
 
-- [ ] 10. Update Frontend Dashboard for Report Generation
+- [x] 10. Update Frontend Dashboard for Report Generation - Partial
 
 
-  - Add "Generate Report" button to demand detail page
-  - Add "Generate Time-Range Report" form to analysis page
-  - Implement report generation API calls with loading states
-  - Display report download links or open in new tab
-  - Add error handling and user feedback for report generation
+  - ✅ Add "Generate Report" button to demand detail page (implemented in demand_detail.html)
+  - ❌ Add "Generate Time-Range Report" form to analysis page (NOT implemented)
+  - ✅ Implement report generation API calls with loading states (implemented for single demand)
+  - ✅ Display report download links or open in new tab (implemented)
+  - ✅ Add error handling and user feedback for report generation (implemented)
   - _Requirements: 7.1, 8.1_
 
-- [ ] 11. Checkpoint - Ensure all tests pass
-  - Run all existing tests to ensure no regressions
-  - Verify agent orchestration works end-to-end
-  - Verify report generation produces valid HTML
-  - Ask the user if questions arise
+- [x] 10.1 Add Time-Range Report Generation UI to Analysis Page
+  - Add date range picker to analysis page filters
+  - Add "Generate Time-Range Report" button
+  - Implement API call to /api/reports/time-range endpoint
+  - Display loading state during report generation
+  - Show success message with download link
+  - Add error handling for invalid date ranges
+  - _Requirements: 8.1_
 
-- [ ] 12. Integration and End-to-End Testing
-  - Test complete monitoring flow with real-time updates
-  - Test duplicate detection with various scenarios
-  - Test agent analysis and forum discussion flow
-  - Test single demand report generation
-  - Test time-range report generation
-  - Test WebSocket communication under load
-  - Test error handling and recovery
+- [x] 11. Final Integration Testing and Validation
+  - Verify complete monitoring flow with real-time WebSocket updates
+  - Test duplicate detection with various URL and content scenarios
+  - Verify agent orchestration triggers correctly after signal collection
+  - Test single demand report generation end-to-end
+  - Test time-range report generation with different date ranges
+  - Verify all monitoring control endpoints (start/stop individual and bulk)
+  - Test error handling and recovery scenarios
+  - Ensure all tests pass, ask the user if questions arise
   - _Requirements: All_
 
-- [ ] 13. Documentation and Deployment
-  - Update FoxTrends/README.md with new features
-  - Document API endpoints in FoxTrends/docs/API.md
-  - Document WebSocket events
-  - Document report generation usage
-  - Update database migration instructions
-  - Create user guide for monitoring controls
+- [ ] 12. Documentation Updates
+  - Update FoxTrends/README.md with new monitoring control features
+  - Document real-time update WebSocket events
+  - Document report generation API endpoints and usage
+  - Document duplicate detection algorithm and configuration
+  - Document agent orchestration workflow
+  - Update database migration instructions for new schema
+  - Create user guide for monitoring controls and report generation
   - _Requirements: All_

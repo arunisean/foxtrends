@@ -312,6 +312,22 @@ class ReportGenerator:
                 
                 signals = []
                 for row in result:
+                    # Convert created_at to datetime if it's a string (SQLite returns strings)
+                    created_at = row[6]
+                    if isinstance(created_at, str):
+                        try:
+                            created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                        except (ValueError, AttributeError):
+                            # If parsing fails, try alternative format
+                            try:
+                                created_at = datetime.strptime(created_at, '%Y-%m-%d %H:%M:%S.%f')
+                            except ValueError:
+                                try:
+                                    created_at = datetime.strptime(created_at, '%Y-%m-%d %H:%M:%S')
+                                except ValueError:
+                                    # If all parsing fails, use current time as fallback
+                                    created_at = datetime.now()
+                    
                     signals.append({
                         'id': row[0],
                         'title': row[1],
@@ -319,7 +335,7 @@ class ReportGenerator:
                         'sentiment_score': row[3],
                         'hotness_score': row[4],
                         'discussion_count': row[5],
-                        'created_at': row[6],
+                        'created_at': created_at,
                         'community_id': row[7],
                         'community_name': row[8]
                     })

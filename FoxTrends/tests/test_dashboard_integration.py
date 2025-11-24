@@ -286,6 +286,105 @@ class TestDashboardIntegration:
         data = response.get_json()
         assert data['success'] is True
         assert data['offset'] == 5
+    
+    def test_analysis_page_has_report_generation_ui(self, client):
+        """测试分析页面包含时间范围报告生成UI"""
+        response = client.get('/analysis')
+        assert response.status_code == 200
+        
+        # 检查页面包含报告生成按钮
+        assert '生成时间范围报告'.encode('utf-8') in response.data
+        
+        # 检查页面包含日期选择器
+        assert b'start-date-filter' in response.data
+        assert b'end-date-filter' in response.data
+        
+        # 检查页面包含自定义时间范围按钮
+        assert '自定义'.encode('utf-8') in response.data
+    
+    def test_time_range_report_api_with_valid_dates(self, client, analysis_test_data):
+        """测试时间范围报告API - 有效日期"""
+        # 确保有测试数据
+        assert len(analysis_test_data['demands']) > 0
+        
+        # 准备请求数据
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=30)
+        
+        request_data = {
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat(),
+            'community_ids': None
+        }
+        
+        response = client.post(
+            '/api/reports/time-range',
+            data=json.dumps(request_data),
+            content_type='application/json'
+        )
+        
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        assert 'report_id' in data
+        assert 'report_url' in data
+    
+    def test_time_range_report_api_with_community_filter(self, client, analysis_test_data):
+        """测试时间范围报告API - 带社区筛选"""
+        # 确保有测试数据
+        assert len(analysis_test_data['communities']) > 0
+        
+        # 准备请求数据
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=30)
+        
+        request_data = {
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat(),
+            'community_ids': [analysis_test_data['communities'][0]]
+        }
+        
+        response = client.post(
+            '/api/reports/time-range',
+            data=json.dumps(request_data),
+            content_type='application/json'
+        )
+        
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+    
+    def test_time_range_report_api_invalid_dates(self, client):
+        """测试时间范围报告API - 无效日期"""
+        # 测试缺少日期
+        response = client.post(
+            '/api/reports/time-range',
+            data=json.dumps({}),
+            content_type='application/json'
+        )
+        
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data['success'] is False
+        assert '日期' in data['message']
+    
+    def test_time_range_report_api_invalid_date_format(self, client):
+        """测试时间范围报告API - 无效日期格式"""
+        request_data = {
+            'start_date': 'invalid-date',
+            'end_date': 'invalid-date'
+        }
+        
+        response = client.post(
+            '/api/reports/time-range',
+            data=json.dumps(request_data),
+            content_type='application/json'
+        )
+        
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data['success'] is False
+        assert '格式' in data['message']
 
 
 @pytest.fixture(scope='session')

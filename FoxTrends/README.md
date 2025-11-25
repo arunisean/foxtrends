@@ -50,13 +50,38 @@ cd FoxTrends
 ./quick_start.sh
 ```
 
+**Windows PowerShell（推荐）**
+```powershell
+# 设置执行策略（首次使用）
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# 一键启动
+.\quick_start.ps1
+```
+
+**Windows 批处理**
+```cmd
+quick_start.bat
+```
+
 启动后访问：http://localhost:5000/
 
 ### 一键停止
 
+**Linux/macOS**
 ```bash
 # 停止所有 FoxTrends 进程
 ./quick_stop.sh
+```
+
+**Windows PowerShell**
+```powershell
+.\quick_stop.ps1
+```
+
+**Windows 批处理**
+```cmd
+quick_stop.bat
 ```
 
 ### 手动安装步骤

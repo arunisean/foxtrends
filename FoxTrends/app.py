@@ -559,6 +559,12 @@ def analysis():
     return render_template('analysis.html')
 
 
+@app.route('/forum-visualization')
+def forum_visualization():
+    """Forum 可视化页面"""
+    return render_template('forum_visualization.html')
+
+
 @app.route('/api/status')
 def get_status():
     """获取所有应用状态"""
@@ -1990,6 +1996,273 @@ def get_report(report_id):
     except Exception as e:
         logger.error(f"获取报告失败: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ==================== Forum Visualization API ====================
+
+@app.route('/api/forum/active-sessions', methods=['GET'])
+def get_active_forum_sessions():
+    """获取活跃的讨论会话"""
+    try:
+        from database.db_manager import DatabaseManager
+        
+        db = DatabaseManager()
+        
+        # 查询状态为 active 的会话
+        query = """
+            SELECT id, demand_signal_id, start_time 
+            FROM discussion_sessions 
+            WHERE status = 'active'
+            ORDER BY start_time DESC
+        """
+        results = db.execute_query(query)
+        
+        sessions = []
+        for row in results:
+            sessions.append({
+                'id': row[0],
+                'demand_signal_id': row[1],
+                'start_time': row[2].isoformat() if row[2] else None
+            })
+        
+        db.close()
+        
+        return jsonify({
+            'success': True,
+            'sessions': sessions,
+            'count': len(sessions)
+        })
+        
+    except Exception as e:
+        logger.error(f"获取活跃会话失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/forum/sessions', methods=['GET'])
+def list_forum_sessions():
+    """获取所有讨论会话列表"""
+    try:
+        from ForumEngine.forum_visualizer import get_visualizer
+        
+        visualizer = get_visualizer()
+        
+        # 获取查询参数
+        limit = request.args.get('limit', 50, type=int)
+        demand_id = request.args.get('demand_id', None, type=int)
+        
+        # 如果指定了 demand_id，获取该需求的会话
+        if demand_id:
+            sessions = visualizer.get_sessions_by_demand(demand_id)
+        else:
+            # 否则获取所有会话（需要实现）
+            from database.db_manager import DatabaseManager
+            db = DatabaseManager()
+            
+            query = """
+                SELECT * FROM discussion_sessions 
+                ORDER BY start_time DESC 
+                LIMIT %s
+            """
+            results = db.execute_query(query, (limit,))
+            
+            sessions = []
+            for row in results:
+                sessions.append({
+                    'id': row[0],
+                    'demand_signal_id': row[1],
+                    'start_time': row[2].isoformat() if row[2] else None,
+                    'end_time': row[3].isoformat() if row[3] else None,
+                    'status': row[4],
+                    'consensus_level': float(row[5]) if row[5] else 0.0,
+                    'consensus_summary': row[6]
+                })
+            
+            db.close()
+        
+        return jsonify({
+            'success': True,
+            'sessions': sessions
+        })
+        
+    except Exception as e:
+        logger.error(f"获取会话列表失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/forum/sessions/<session_id>', methods=['GET'])
+def get_forum_session(session_id):
+    """获取会话详情"""
+    try:
+        from ForumEngine.forum_visualizer import get_visualizer
+        
+        visualizer = get_visualizer()
+        session = visualizer.get_session(session_id)
+        
+        if not session:
+            return jsonify({'success': False, 'message': '会话不存在'}), 404
+        
+        # 格式化时间字段
+        if session.get('start_time'):
+            session['start_time'] = session['start_time'].isoformat() if hasattr(session['start_time'], 'isoformat') else str(session['start_time'])
+        if session.get('end_time'):
+            session['end_time'] = session['end_time'].isoformat() if hasattr(session['end_time'], 'isoformat') else str(session['end_time'])
+        
+        return jsonify({
+            'success': True,
+            'session': session
+        })
+        
+    except Exception as e:
+        logger.error(f"获取会话详情失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/forum/sessions/<session_id>/messages', methods=['GET'])
+def get_forum_messages(session_id):
+    """获取会话的所有消息"""
+    try:
+        from ForumEngine.forum_visualizer import get_visualizer
+        
+        visualizer = get_visualizer()
+        messages = visualizer.get_messages(session_id)
+        
+        # 格式化时间字段
+        for msg in messages:
+            if msg.get('timestamp'):
+                msg['timestamp'] = msg['timestamp'].isoformat() if hasattr(msg['timestamp'], 'isoformat') else str(msg['timestamp'])
+        
+        return jsonify({
+            'success': True,
+            'messages': messages
+        })
+        
+    except Exception as e:
+        logger.error(f"获取会话消息失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/forum/sessions/<session_id>/agent-states', methods=['GET'])
+def get_forum_agent_states(session_id):
+    """获取会话的 Agent 状态"""
+    try:
+        from ForumEngine.forum_visualizer import get_visualizer
+        
+        visualizer = get_visualizer()
+        states = visualizer.get_agent_states(session_id)
+        
+        # 格式化时间字段
+        for state in states:
+            if state.get('last_active'):
+                state['last_active'] = state['last_active'].isoformat() if hasattr(state['last_active'], 'isoformat') else str(state['last_active'])
+        
+        return jsonify({
+            'success': True,
+            'states': states
+        })
+        
+    except Exception as e:
+        logger.error(f"获取 Agent 状态失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/forum/sessions/<session_id>/replay', methods=['GET'])
+def get_forum_replay_data(session_id):
+    """获取会话的回放数据"""
+    try:
+        from ForumEngine.forum_visualizer import get_visualizer
+        
+        visualizer = get_visualizer()
+        events = visualizer.get_events(session_id)
+        
+        # 格式化时间字段
+        for event in events:
+            if event.get('timestamp'):
+                event['timestamp'] = event['timestamp'].isoformat() if hasattr(event['timestamp'], 'isoformat') else str(event['timestamp'])
+        
+        return jsonify({
+            'success': True,
+            'events': events
+        })
+        
+    except Exception as e:
+        logger.error(f"获取回放数据失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ==================== Forum Visualization WebSocket ====================
+
+@socketio.on('connect', namespace='/forum-visualization')
+def handle_forum_connect():
+    """Forum 可视化客户端连接"""
+    logger.info(f"Forum 可视化客户端已连接: {request.sid}")
+    emit('connected', {'message': '已连接到 Forum 可视化服务'})
+
+
+@socketio.on('disconnect', namespace='/forum-visualization')
+def handle_forum_disconnect():
+    """Forum 可视化客户端断开"""
+    logger.info(f"Forum 可视化客户端已断开: {request.sid}")
+
+
+@socketio.on('join_session', namespace='/forum-visualization')
+def handle_join_session(data):
+    """加入会话房间"""
+    try:
+        from flask_socketio import join_room
+        from ForumEngine.websocket_broadcaster import get_broadcaster
+        
+        session_id = data.get('session_id')
+        if not session_id:
+            emit('error', {'message': '缺少 session_id'})
+            return
+        
+        join_room(session_id)
+        
+        # 使用 broadcaster 的方法
+        broadcaster = get_broadcaster()
+        broadcaster.join_session_room(session_id, request.sid)
+        
+        emit('joined_session', {'session_id': session_id})
+        logger.info(f"客户端 {request.sid} 加入会话 {session_id}")
+        
+    except Exception as e:
+        logger.error(f"加入会话失败: {e}")
+        emit('error', {'message': str(e)})
+
+
+@socketio.on('leave_session', namespace='/forum-visualization')
+def handle_leave_session(data):
+    """离开会话房间"""
+    try:
+        from flask_socketio import leave_room
+        from ForumEngine.websocket_broadcaster import get_broadcaster
+        
+        session_id = data.get('session_id')
+        if not session_id:
+            emit('error', {'message': '缺少 session_id'})
+            return
+        
+        leave_room(session_id)
+        
+        # 使用 broadcaster 的方法
+        broadcaster = get_broadcaster()
+        broadcaster.leave_session_room(session_id, request.sid)
+        
+        emit('left_session', {'session_id': session_id})
+        logger.info(f"客户端 {request.sid} 离开会话 {session_id}")
+        
+    except Exception as e:
+        logger.error(f"离开会话失败: {e}")
+        emit('error', {'message': str(e)})
+
+
+# 初始化 WebSocket Broadcaster
+try:
+    from ForumEngine.websocket_broadcaster import init_broadcaster
+    init_broadcaster(socketio)
+    logger.info("WebSocket Broadcaster 已初始化")
+except Exception as e:
+    logger.error(f"初始化 WebSocket Broadcaster 失败: {e}")
 
 
 if __name__ == '__main__':

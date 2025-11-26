@@ -1,0 +1,103 @@
+/**
+ * Live Discussion Badge Styles
+ * 活跃讨论指示器样式
+ */
+
+.live-discussion-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    color: white;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    box-shadow: 0 2px 10px rgba(255, 107, 107, 0.4);
+    animation: pulse-badge 2s ease-in-out infinite;
+    z-index: 10;
+}
+
+.live-icon {
+    font-size: 0.7rem;
+    animation: blink 1.5s ease-in-out infinite;
+}
+
+.live-text {
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+@keyframes pulse-badge {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 2px 10px rgba(255, 107, 107, 0.4);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 4px 20px rgba(255, 107, 107, 0.6);
+    }
+}
+
+@keyframes blink {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+/* 总计数指示器 */
+.live-discussion-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    color: white;
+    border-radius: 25px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 10px rgba(255, 107, 107, 0.3);
+    animation: pulse-badge 2s ease-in-out infinite;
+}
+
+.live-discussion-count .icon {
+    font-size: 1rem;
+    animation: blink 1.5s ease-in-out infinite;
+}
+
+.live-discussion-count .count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+}
+
+/* 点击效果 */
+.live-discussion-badge:hover {
+    cursor: pointer;
+    transform: scale(1.1);
+    box-shadow: 0 4px 20px rgba(255, 107, 107, 0.6);
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .live-discussion-badge {
+        padding: 4px 10px;
+        font-size: 0.75rem;
+        top: 8px;
+        right: 8px;
+    }
+    
+    .live-text {
+        display: none;
+    }
+    
+    .live-icon {
+        font-size: 0.9rem;
+    }
+}

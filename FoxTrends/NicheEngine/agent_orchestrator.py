@@ -19,6 +19,8 @@ from CommunityInsightAgent.agent import CommunityInsightAgent
 from ContentAnalysisAgent.agent import ContentAnalysisAgent
 from TrendDiscoveryAgent.agent import TrendDiscoveryAgent
 from utils.safe_logger import safe_log_info, safe_log_error
+from ForumEngine.forum_visualizer import get_visualizer
+from ForumEngine.websocket_broadcaster import get_broadcaster
 
 
 class AgentOrchestrator:
@@ -45,6 +47,10 @@ class AgentOrchestrator:
         
         self.db_manager = db_manager
         
+        # 初始化可视化组件
+        self.visualizer = get_visualizer()
+        self.broadcaster = get_broadcaster()
+        
         # 初始化三个Agent
         try:
             self.community_insight_agent = CommunityInsightAgent()
@@ -65,58 +71,141 @@ class AgentOrchestrator:
         except Exception as e:
             safe_log_error(f"AgentOrchestrator: ForumEngine集成失败: {e}")
     
-    def analyze_signal(self, signal_id: int, signal_data: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_signal(self, signal_id: int, signal_data: Dict[str, Any], 
+                      session_id: str = None) -> Dict[str, Any]:
         """
-        分析需求信号
+        分析需求信号（流水线式处理）
         
-        调用三个Agent对信号进行分析
+        按顺序调用三个Agent对信号进行分析，每个Agent可以参考前面Agent的结果
+        这样可以：
+        1. 避免并发LLM调用导致的API限流
+        2. 降低调用失败率
+        3. 让后续Agent能够参考前面的分析结果
         
         Args:
             signal_id: 需求信号ID
             signal_data: 需求信号数据（包含title, content等）
+            session_id: 讨论会话ID（可选，用于可视化）
             
         Returns:
             分析结果字典
         """
-        safe_log_info(f"AgentOrchestrator: 开始分析信号 {signal_id}")
+        safe_log_info(f"AgentOrchestrator: 开始流水线式分析信号 {signal_id}")
+        
+        # 创建可视化会话
+        if session_id is None:
+            session_id = self.visualizer.create_session(signal_id)
+        
+        # 初始化 Agent 状态
+        self._init_agent_states(session_id)
         
         try:
             # 构建查询内容
             query = self._build_query(signal_data)
             
-            # 并行调用三个Agent
+            # 流水线式调用三个Agent（顺序执行）
             results = {}
+            context = {}  # 用于传递前面Agent的分析结果
             
-            # 1. CommunityInsightAgent - 社区历史数据分析
+            # 阶段1: CommunityInsightAgent - 社区历史数据分析
+            self._update_stage(session_id, 1, "Community Analysis")
             try:
-                safe_log_info(f"AgentOrchestrator: 调用 CommunityInsightAgent")
+                safe_log_info(f"AgentOrchestrator: [阶段1/3] 调用 CommunityInsightAgent")
+                
+                # 更新状态为分析中
+                self._update_agent_status(session_id, 'community_insight', 
+                                         'Community Insight Agent', 'analyzing', 1)
+                
                 results['community_insight'] = self.community_insight_agent.run(query, signal_data=signal_data)
+                
+                # 提取关键信息供后续Agent参考
+                if results['community_insight'].get('success'):
+                    context['community_patterns'] = results['community_insight'].get('patterns', [])
+                    context['community_trends'] = results['community_insight'].get('trends', [])
+                    safe_log_info(f"AgentOrchestrator: CommunityInsightAgent 完成，发现 {len(context.get('community_patterns', []))} 个模式")
+                    
+                    # 更新状态为完成
+                    self._update_agent_status(session_id, 'community_insight',
+                                             'Community Insight Agent', 'complete', 1)
+                else:
+                    self._update_agent_status(session_id, 'community_insight',
+                                             'Community Insight Agent', 'error', 1,
+                                             results['community_insight'].get('error'))
+                
             except Exception as e:
                 safe_log_error(f"AgentOrchestrator: CommunityInsightAgent 失败: {e}")
                 results['community_insight'] = {'success': False, 'error': str(e)}
+                self._update_agent_status(session_id, 'community_insight',
+                                         'Community Insight Agent', 'error', 1, str(e))
             
-            # 2. ContentAnalysisAgent - 内容分析
+            # 阶段2: ContentAnalysisAgent - 内容分析（可参考社区分析结果）
+            self._update_stage(session_id, 2, "Content Analysis")
             try:
-                safe_log_info(f"AgentOrchestrator: 调用 ContentAnalysisAgent")
-                results['content_analysis'] = self.content_analysis_agent.run(query, signal_data=signal_data)
+                safe_log_info(f"AgentOrchestrator: [阶段2/3] 调用 ContentAnalysisAgent")
+                
+                # 更新状态
+                self._update_agent_status(session_id, 'content_analysis',
+                                         'Content Analysis Agent', 'analyzing', 2)
+                
+                # 将前面的分析结果添加到signal_data中
+                enhanced_signal_data = {**signal_data, 'context': context}
+                results['content_analysis'] = self.content_analysis_agent.run(query, signal_data=enhanced_signal_data)
+                
+                # 提取关键信息供后续Agent参考
+                if results['content_analysis'].get('success'):
+                    context['pain_points'] = results['content_analysis'].get('pain_points', [])
+                    context['feature_requests'] = results['content_analysis'].get('feature_requests', [])
+                    safe_log_info(f"AgentOrchestrator: ContentAnalysisAgent 完成，识别 {len(context.get('pain_points', []))} 个痛点")
+                    
+                    self._update_agent_status(session_id, 'content_analysis',
+                                             'Content Analysis Agent', 'complete', 2)
+                else:
+                    self._update_agent_status(session_id, 'content_analysis',
+                                             'Content Analysis Agent', 'error', 2,
+                                             results['content_analysis'].get('error'))
+                
             except Exception as e:
                 safe_log_error(f"AgentOrchestrator: ContentAnalysisAgent 失败: {e}")
                 results['content_analysis'] = {'success': False, 'error': str(e)}
+                self._update_agent_status(session_id, 'content_analysis',
+                                         'Content Analysis Agent', 'error', 2, str(e))
             
-            # 3. TrendDiscoveryAgent - 趋势发现
+            # 阶段3: TrendDiscoveryAgent - 趋势发现（可参考前两个Agent的结果）
+            self._update_stage(session_id, 3, "Trend Discovery")
             try:
-                safe_log_info(f"AgentOrchestrator: 调用 TrendDiscoveryAgent")
-                results['trend_discovery'] = self.trend_discovery_agent.run(query, signal_data=signal_data)
+                safe_log_info(f"AgentOrchestrator: [阶段3/3] 调用 TrendDiscoveryAgent")
+                
+                # 更新状态
+                self._update_agent_status(session_id, 'trend_discovery',
+                                         'Trend Discovery Agent', 'analyzing', 3)
+                
+                # 将所有前面的分析结果添加到signal_data中
+                enhanced_signal_data = {**signal_data, 'context': context}
+                results['trend_discovery'] = self.trend_discovery_agent.run(query, signal_data=enhanced_signal_data)
+                
+                if results['trend_discovery'].get('success'):
+                    safe_log_info(f"AgentOrchestrator: TrendDiscoveryAgent 完成")
+                    
+                    self._update_agent_status(session_id, 'trend_discovery',
+                                             'Trend Discovery Agent', 'complete', 3)
+                else:
+                    self._update_agent_status(session_id, 'trend_discovery',
+                                             'Trend Discovery Agent', 'error', 3,
+                                             results['trend_discovery'].get('error'))
+                
             except Exception as e:
                 safe_log_error(f"AgentOrchestrator: TrendDiscoveryAgent 失败: {e}")
                 results['trend_discovery'] = {'success': False, 'error': str(e)}
+                self._update_agent_status(session_id, 'trend_discovery',
+                                         'Trend Discovery Agent', 'error', 3, str(e))
             
-            safe_log_info(f"AgentOrchestrator: 信号 {signal_id} 分析完成")
+            safe_log_info(f"AgentOrchestrator: 信号 {signal_id} 流水线式分析完成")
             
             return {
                 'success': True,
                 'signal_id': signal_id,
                 'results': results,
+                'context': context,  # 包含提取的关键信息
                 'timestamp': datetime.now().isoformat()
             }
             
@@ -285,6 +374,60 @@ class AgentOrchestrator:
         except Exception as e:
             safe_log_error(f"AgentOrchestrator: 获取讨论总结失败: {e}")
             return None
+    
+    # ==================== 可视化辅助方法 ====================
+    
+    def _init_agent_states(self, session_id: str):
+        """初始化所有 Agent 的状态"""
+        agents = [
+            ('community_insight', 'Community Insight Agent'),
+            ('content_analysis', 'Content Analysis Agent'),
+            ('trend_discovery', 'Trend Discovery Agent')
+        ]
+        
+        for agent_id, agent_name in agents:
+            self.visualizer.update_agent_state(
+                session_id, agent_id, agent_name, 'waiting'
+            )
+    
+    def _update_agent_status(self, session_id: str, agent_id: str, agent_name: str,
+                            status: str, stage: int = None, error_message: str = None):
+        """更新 Agent 状态并广播"""
+        # 更新数据库
+        self.visualizer.update_agent_state(
+            session_id, agent_id, agent_name, status, stage, error_message
+        )
+        
+        # 广播到前端
+        self.broadcaster.broadcast_agent_status_update(
+            session_id, agent_id, status, stage, error_message
+        )
+        
+        # 记录可视化事件
+        self.visualizer.record_event(session_id, 'agent_status_update', {
+            'agent_id': agent_id,
+            'status': status,
+            'stage': stage,
+            'error_message': error_message
+        })
+    
+    def _update_stage(self, session_id: str, stage: int, stage_name: str):
+        """更新当前阶段并广播"""
+        # 广播阶段变化
+        self.broadcaster.broadcast_stage_change(session_id, stage, stage_name)
+        
+        # 更新进度
+        percentage = int((stage / 3) * 100)
+        self.broadcaster.broadcast_progress_update(
+            session_id, 'analyzing', percentage
+        )
+        
+        # 记录可视化事件
+        self.visualizer.record_event(session_id, 'stage_change', {
+            'stage': stage,
+            'stage_name': stage_name,
+            'percentage': percentage
+        })
     
     def _build_query(self, signal_data: Dict[str, Any]) -> str:
         """构建查询内容"""

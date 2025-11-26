@@ -10,6 +10,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
     
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <!-- Forum Visualization CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/forum-visualization/round-table.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/forum-visualization/timeline.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/forum-visualization/interaction-lines.css') }}">
+    
     <style>
         * {
             margin: 0;
@@ -179,38 +187,37 @@
             margin-bottom: 30px;
         }
         
-        .discussion-item {
-            padding: 20px;
-            margin-bottom: 15px;
-            border-left: 4px solid #667eea;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        
-        .discussion-header {
+        .view-toggle {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
+            gap: 10px;
+            margin-bottom: 20px;
         }
         
-        .agent-name {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 700;
+        .toggle-btn {
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            background: white;
             color: #667eea;
-            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
         }
         
-        .discussion-time {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: #999;
+        .toggle-btn.active {
+            background: #667eea;
+            color: white;
         }
         
-        .discussion-content {
-            font-size: 1rem;
-            line-height: 1.6;
-            color: #333;
+        .toggle-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .visualization-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
         }
         
         .no-discussion {
@@ -218,6 +225,12 @@
             padding: 40px;
             color: #999;
             font-style: italic;
+        }
+        
+        @media (max-width: 1024px) {
+            .visualization-container {
+                grid-template-columns: 1fr;
+            }
         }
         
         .loading {
@@ -323,17 +336,41 @@
                 <div class="demand-content" id="demand-content">-</div>
             </div>
             
-            <!-- ForumEngine 讨论 -->
+            <!-- ForumEngine 讨论可视化 -->
             <div class="forum-discussion">
-                <h2 class="section-title">🤖 Agent 分析讨论</h2>
-                <div id="forum-discussions">
-                    <div class="no-discussion">暂无 Agent 讨论记录</div>
+                <h2 class="section-title">🤖 Agent 讨论可视化</h2>
+                
+                <!-- View Toggle -->
+                <div class="view-toggle">
+                    <button class="toggle-btn active" onclick="switchView('visualization')">圆桌视图</button>
+                    <button class="toggle-btn" onclick="switchView('timeline')">时间线视图</button>
+                </div>
+                
+                <!-- Visualization View -->
+                <div id="visualization-view" class="visualization-container">
+                    <div id="round-table-container"></div>
+                    <div id="timeline-container"></div>
+                </div>
+                
+                <!-- No Discussion State -->
+                <div id="no-discussion" class="no-discussion" style="display: none;">
+                    暂无 Agent 讨论记录
                 </div>
             </div>
         </div>
     </div>
     
+    <!-- Forum Visualization JavaScript -->
+    <script src="{{ url_for('static', filename='js/forum-visualization/websocket-client.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/forum-visualization/interaction-lines.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/forum-visualization/round-table-view.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/forum-visualization/discussion-timeline.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/forum-visualization/forum-controller.js') }}"></script>
+    
     <script>
+        let forumController = null;
+        let currentView = 'visualization';
+        
         // 获取需求 ID
         function getDemandId() {
             const pathParts = window.location.pathname.split('/');
@@ -385,35 +422,71 @@
             document.getElementById('content').style.display = 'block';
         }
         
-        // 加载 ForumEngine 讨论
+        // 加载 ForumEngine 讨论可视化
         async function loadForumDiscussions(demandId) {
             try {
-                const response = await fetch(`/api/demands/${demandId}/discussions`);
+                // 获取该需求的讨论会话
+                const response = await fetch(`/api/forum/sessions?demand_id=${demandId}`);
                 const data = await response.json();
                 
-                if (data.success && data.discussions && data.discussions.length > 0) {
-                    displayDiscussions(data.discussions);
+                if (data.success && data.sessions && data.sessions.length > 0) {
+                    // 使用最新的会话
+                    const session = data.sessions[0];
+                    initializeVisualization(session.id, demandId);
+                } else {
+                    // 没有讨论会话
+                    document.getElementById('visualization-view').style.display = 'none';
+                    document.getElementById('no-discussion').style.display = 'block';
                 }
             } catch (error) {
                 console.error('加载讨论失败:', error);
+                document.getElementById('visualization-view').style.display = 'none';
+                document.getElementById('no-discussion').style.display = 'block';
             }
         }
         
-        // 显示讨论
-        function displayDiscussions(discussions) {
-            const container = document.getElementById('forum-discussions');
+        // 初始化可视化
+        function initializeVisualization(sessionId, demandId) {
+            try {
+                forumController = new ForumVisualizationController({
+                    sessionId: sessionId,
+                    demandId: demandId,
+                    roundTableContainerId: 'round-table-container',
+                    timelineContainerId: 'timeline-container'
+                });
+                
+                forumController.start();
+                
+                document.getElementById('visualization-view').style.display = 'grid';
+                document.getElementById('no-discussion').style.display = 'none';
+            } catch (error) {
+                console.error('初始化可视化失败:', error);
+                document.getElementById('visualization-view').style.display = 'none';
+                document.getElementById('no-discussion').style.display = 'block';
+            }
+        }
+        
+        // 切换视图
+        function switchView(view) {
+            currentView = view;
             
-            const html = discussions.map(discussion => `
-                <div class="discussion-item">
-                    <div class="discussion-header">
-                        <span class="agent-name">${discussion.agent_name}</span>
-                        <span class="discussion-time">${discussion.timestamp}</span>
-                    </div>
-                    <div class="discussion-content">${discussion.content}</div>
-                </div>
-            `).join('');
+            // 更新按钮状态
+            document.querySelectorAll('.toggle-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
             
-            container.innerHTML = html;
+            // 切换显示
+            const visualizationView = document.getElementById('visualization-view');
+            
+            if (view === 'visualization') {
+                visualizationView.style.display = 'grid';
+            } else if (view === 'timeline') {
+                // 只显示时间线
+                visualizationView.style.display = 'grid';
+                visualizationView.style.gridTemplateColumns = '1fr';
+                document.getElementById('round-table-container').style.display = 'none';
+            }
         }
         
         // 生成报告
@@ -463,6 +536,13 @@
         
         // 页面加载
         document.addEventListener('DOMContentLoaded', loadDemandDetail);
+        
+        // 页面卸载时清理
+        window.addEventListener('beforeunload', () => {
+            if (forumController) {
+                forumController.stop();
+            }
+        });
     </script>
 </body>
 </html>

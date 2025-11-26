@@ -1,0 +1,32 @@
+/**
+ * Interaction Lines Styles
+ * 交互连接线样式
+ */
+
+.interaction-lines-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.interaction-line {
+    transition: opacity 0.3s ease;
+}
+
+/* 动画效果 */
+@keyframes line-pulse {
+    0%, 100% {
+        stroke-opacity: 0.8;
+    }
+    50% {
+        stroke-opacity: 0.4;
+    }
+}
+
+.interaction-line {
+    animation: line-pulse 1.5s ease-in-out infinite;
+}

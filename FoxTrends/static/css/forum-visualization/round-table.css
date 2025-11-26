@@ -1,0 +1,405 @@
+/**
+ * Round Table View Styles
+ * 圆桌视图样式
+ */
+
+.round-table-container {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    position: relative;
+}
+
+/* 阶段指示器 */
+.stage-indicator {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    color: white;
+}
+
+.stage-label {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.stage-progress {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: white;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.progress-text {
+    font-size: 1rem;
+    font-weight: 600;
+    min-width: 50px;
+}
+
+/* 圆桌布局 */
+.round-table {
+    position: relative;
+    width: 500px;
+    height: 500px;
+    margin: 0 auto;
+}
+
+/* Agent 头像 */
+.agent-avatar {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+/* Forum Host (中心) */
+.agent-avatar.forum-host {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Community Insight (顶部) */
+.agent-avatar.agent-top {
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* Content Analysis (右侧) */
+.agent-avatar.agent-right {
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+}
+
+/* Trend Discovery (左侧) */
+.agent-avatar.agent-left {
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+}
+
+/* 头像圆圈 */
+.avatar-circle {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.forum-host .avatar-circle {
+    width: 120px;
+    height: 120px;
+}
+
+.avatar-icon {
+    font-size: 3rem;
+}
+
+.forum-host .avatar-icon {
+    font-size: 3.5rem;
+}
+
+/* 状态指示器 */
+.status-indicator {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 3px solid white;
+    background: #999;
+}
+
+/* 状态颜色 */
+.status-indicator.status-idle {
+    background: #999;
+}
+
+.status-indicator.status-waiting {
+    background: #999;
+    animation: pulse-waiting 2s infinite;
+}
+
+.status-indicator.status-analyzing {
+    background: #2196f3;
+    animation: pulse-analyzing 1.5s infinite;
+}
+
+.status-indicator.status-speaking {
+    background: #4caf50;
+    animation: pulse-speaking 1s infinite;
+}
+
+.status-indicator.status-complete {
+    background: #4caf50;
+}
+
+.status-indicator.status-error {
+    background: #f44336;
+    animation: pulse-error 0.5s infinite;
+}
+
+/* 脉冲动画 */
+@keyframes pulse-waiting {
+    0%, 100% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.2); opacity: 1; }
+}
+
+@keyframes pulse-analyzing {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7); }
+    50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
+}
+
+@keyframes pulse-speaking {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+    50% { transform: scale(1.2); box-shadow: 0 0 0 15px rgba(76, 175, 80, 0); }
+}
+
+@keyframes pulse-error {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+}
+
+/* Agent 名称和状态 */
+.avatar-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #333;
+    text-align: center;
+}
+
+.avatar-status {
+    font-size: 0.8rem;
+    color: #666;
+    text-align: center;
+}
+
+/* 发言高亮 */
+.agent-avatar.speaking-highlight .avatar-circle {
+    box-shadow: 0 0 30px rgba(76, 175, 80, 0.8);
+    transform: scale(1.1);
+}
+
+.agent-avatar.agent-top.speaking-highlight {
+    transform: translateX(-50%) scale(1.1);
+}
+
+.agent-avatar.agent-right.speaking-highlight {
+    transform: translateY(-50%) scale(1.1);
+}
+
+.agent-avatar.agent-left.speaking-highlight {
+    transform: translateY(-50%) scale(1.1);
+}
+
+.agent-avatar.forum-host.speaking-highlight {
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+/* 共识指示器 */
+.consensus-meter {
+    margin-top: 30px;
+    text-align: center;
+    padding: 15px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.consensus-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.consensus-bar {
+    height: 12px;
+    background: #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.consensus-fill {
+    height: 100%;
+    background: #4caf50;
+    border-radius: 6px;
+    transition: width 0.5s ease, background-color 0.3s ease;
+}
+
+.consensus-text {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #667eea;
+}
+
+/* 庆祝动画 */
+.celebration-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease;
+}
+
+.celebration-content {
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    text-align: center;
+    animation: bounceIn 0.5s ease;
+}
+
+.celebration-icon {
+    font-size: 5rem;
+    margin-bottom: 20px;
+}
+
+.celebration-text {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #4caf50;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes bounceIn {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.05); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .round-table-container {
+        padding: 10px;
+    }
+    
+    .stage-indicator {
+        padding: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .stage-label {
+        font-size: 1rem;
+    }
+    
+    .round-table {
+        width: 100%;
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        padding: 10px;
+    }
+    
+    .agent-avatar {
+        position: static !important;
+        transform: none !important;
+        width: 100%;
+        flex-direction: row;
+        justify-content: flex-start;
+        padding: 15px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .agent-avatar .avatar-circle {
+        width: 60px;
+        height: 60px;
+        flex-shrink: 0;
+    }
+    
+    .forum-host .avatar-circle {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .avatar-icon {
+        font-size: 2rem;
+    }
+    
+    .forum-host .avatar-icon {
+        font-size: 2.5rem;
+    }
+    
+    .agent-avatar .avatar-name,
+    .agent-avatar .avatar-status {
+        text-align: left;
+        margin-left: 15px;
+    }
+    
+    .agent-avatar.speaking-highlight {
+        transform: scale(1.02) !important;
+        box-shadow: 0 4px 20px rgba(76, 175, 80, 0.4);
+    }
+    
+    .consensus-meter {
+        margin-top: 20px;
+        padding: 10px;
+    }
+    
+    /* 隐藏交互线在移动端 */
+    .interaction-lines-svg {
+        display: none;
+    }
+}
+
+/* 平板设备 */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .round-table {
+        width: 400px;
+        height: 400px;
+    }
+    
+    .avatar-circle {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .forum-host .avatar-circle {
+        width: 100px;
+        height: 100px;
+    }
+}

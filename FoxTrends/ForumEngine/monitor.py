@@ -27,7 +27,7 @@ except ImportError:
 class LogMonitor:
     """基于文件变化的智能日志监控器 - FoxTrends版本"""
    
-    def __init__(self, log_dir: str = "logs"):
+    def __init__(self, log_dir: str = "logs", demand_signal_id: int = None):
         """初始化日志监控器"""
         self.log_dir = Path(log_dir)
         self.forum_log_file = self.log_dir / "forum.log"
@@ -70,6 +70,27 @@ class LogMonitor:
         self.json_buffer = {}
         self.json_start_line = {}
         self.in_error_block = {}
+       
+        # 可视化集成
+        self.demand_signal_id = demand_signal_id
+        self.session_id = None
+        self.visualizer = None
+        self.broadcaster = None
+        self.current_stage = 0
+        self.stage_names = {
+            1: "Community Analysis",
+            2: "Content Analysis", 
+            3: "Trend Discovery"
+        }
+        
+        # 初始化可视化组件
+        try:
+            from .forum_visualizer import get_visualizer
+            from .websocket_broadcaster import get_broadcaster
+            self.visualizer = get_visualizer()
+            self.broadcaster = get_broadcaster()
+        except Exception as e:
+            logger.warning(f"ForumEngine: 可视化组件初始化失败: {e}")
        
         # 确保logs目录存在
         self.log_dir.mkdir(exist_ok=True)
@@ -489,6 +510,55 @@ class LogMonitor:
                                         self.is_searching = True
                                         self.search_inactive_count = 0
                                         self.clear_forum_log()
+                                        
+                                        # 可视化: 确定当前阶段
+                                        stage_map = {
+                                            'community_insight': 1,
+                                            'content_analysis': 2,
+                                            'trend_discovery': 3
+                                        }
+                                        
+                                        if app_name in stage_map:
+                                            self.current_stage = stage_map[app_name]
+                                            
+                                            # 广播阶段变化
+                                            if self.broadcaster and self.session_id:
+                                                try:
+                                                    self.broadcaster.broadcast_stage_change(
+                                                        self.session_id,
+                                                        self.current_stage,
+                                                        self.stage_names.get(self.current_stage, f"Stage {self.current_stage}")
+                                                    )
+                                                except Exception as e:
+                                                    logger.error(f"ForumEngine: 广播阶段变化失败: {e}")
+                                            
+                                            # 更新 Agent 状态为 analyzing
+                                            if self.visualizer and self.session_id:
+                                                try:
+                                                    agent_names = {
+                                                        'community_insight': 'Community Insight Agent',
+                                                        'content_analysis': 'Content Analysis Agent',
+                                                        'trend_discovery': 'Trend Discovery Agent'
+                                                    }
+                                                    
+                                                    self.visualizer.update_agent_state(
+                                                        self.session_id,
+                                                        app_name,
+                                                        agent_names.get(app_name, app_name),
+                                                        'analyzing',
+                                                        self.current_stage
+                                                    )
+                                                    
+                                                    if self.broadcaster:
+                                                        self.broadcaster.broadcast_agent_status_update(
+                                                            self.session_id,
+                                                            app_name,
+                                                            'analyzing',
+                                                            self.current_stage
+                                                        )
+                                                except Exception as e:
+                                                    logger.error(f"ForumEngine: 更新 Agent 状态失败: {e}")
+                                        
                                         break
                        
                         if self.is_searching:
@@ -498,6 +568,55 @@ class LogMonitor:
                                 source_tag = app_name.upper()
                                 self.write_to_forum_log(content, source_tag)
                                 captured_any = True
+                                
+                                # 可视化: 添加消息
+                                if self.visualizer and self.session_id:
+                                    try:
+                                        agent_names = {
+                                            'community_insight': 'Community Insight Agent',
+                                            'content_analysis': 'Content Analysis Agent',
+                                            'trend_discovery': 'Trend Discovery Agent'
+                                        }
+                                        
+                                        message_id = self.visualizer.add_message(
+                                            self.session_id,
+                                            app_name,
+                                            agent_names.get(app_name, app_name),
+                                            content,
+                                            'analysis'
+                                        )
+                                        
+                                        # 广播新消息
+                                        if self.broadcaster:
+                                            self.broadcaster.broadcast_new_message(
+                                                self.session_id,
+                                                {
+                                                    'id': message_id,
+                                                    'agent_id': app_name,
+                                                    'agent_name': agent_names.get(app_name, app_name),
+                                                    'content': content,
+                                                    'message_type': 'analysis',
+                                                    'timestamp': datetime.now().isoformat()
+                                                }
+                                            )
+                                        
+                                        # 更新 Agent 状态为 speaking
+                                        self.visualizer.update_agent_state(
+                                            self.session_id,
+                                            app_name,
+                                            agent_names.get(app_name, app_name),
+                                            'speaking'
+                                        )
+                                        
+                                        if self.broadcaster:
+                                            self.broadcaster.broadcast_agent_status_update(
+                                                self.session_id,
+                                                app_name,
+                                                'speaking'
+                                            )
+                                        
+                                    except Exception as e:
+                                        logger.error(f"ForumEngine: 可视化事件发送失败: {e}")
                                 
                                 timestamp = datetime.now().strftime('%H:%M:%S')
                                 log_line = f"[{timestamp}] [{source_tag}] {content}"
@@ -553,6 +672,31 @@ class LogMonitor:
             return False
        
         try:
+            # 创建可视化会话
+            if self.visualizer and self.demand_signal_id:
+                try:
+                    self.session_id = self.visualizer.create_session(self.demand_signal_id)
+                    logger.info(f"ForumEngine: 创建可视化会话 {self.session_id}")
+                    
+                    # 初始化 Agent 状态
+                    agent_names = {
+                        'community_insight': 'Community Insight Agent',
+                        'content_analysis': 'Content Analysis Agent',
+                        'trend_discovery': 'Trend Discovery Agent',
+                        'forum_host': 'Forum Host'
+                    }
+                    
+                    for agent_id, agent_name in agent_names.items():
+                        self.visualizer.update_agent_state(
+                            self.session_id,
+                            agent_id,
+                            agent_name,
+                            'idle'
+                        )
+                    
+                except Exception as e:
+                    logger.error(f"ForumEngine: 创建可视化会话失败: {e}")
+            
             self.is_monitoring = True
             self.monitor_thread = threading.Thread(target=self.monitor_logs, daemon=True)
             self.monitor_thread.start()
@@ -584,6 +728,18 @@ class LogMonitor:
            
             end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self.write_to_forum_log(f"=== FoxTrends ForumEngine 论坛结束 - {end_time} ===", "SYSTEM")
+           
+            # 更新可视化会话状态
+            if self.visualizer and self.session_id:
+                try:
+                    self.visualizer.update_session_status(
+                        self.session_id,
+                        'completed',
+                        consensus_level=0.85  # 可以根据实际情况计算
+                    )
+                    logger.info(f"ForumEngine: 会话 {self.session_id} 已完成")
+                except Exception as e:
+                    logger.error(f"ForumEngine: 更新会话状态失败: {e}")
            
             logger.info("ForumEngine: 论坛已停止")
            

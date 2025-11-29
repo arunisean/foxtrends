@@ -229,9 +229,10 @@ class MonitoringTask:
             from NicheEngine.crawlers.factory import CrawlerFactory
             
             # 创建对应的爬虫
+            safe_log_info(f"准备创建爬虫 - 类型: {self.community.source_type}, URL: {self.community.source_url}")
             crawler = CrawlerFactory.create_crawler(
                 self.community.source_type,
-                self.community.source_url,
+                self.community.source_url or "",  # 确保不是 None
                 self.community.config or {}
             )
             

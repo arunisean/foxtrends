@@ -64,7 +64,7 @@ class DatabaseManager:
         try:
             url = build_database_url()
             self.engine = create_engine(url, future=True, pool_pre_ping=True, pool_recycle=1800)
-            safe_log('info', f"成功连接到数据库: {settings.DB_NAME} ({settings.DB_DIALECT})")
+            # safe_log('info', f"成功连接到数据库: {settings.DB_NAME} ({settings.DB_DIALECT})")
         except Exception as e:
             safe_log('error', f"数据库连接失败: {e}")
             raise
@@ -73,7 +73,7 @@ class DatabaseManager:
         """关闭数据库连接"""
         if self.engine:
             self.engine.dispose()
-            safe_log('info', "数据库连接已关闭")
+            # safe_log('info', "数据库连接已关闭")
     
     def test_connection(self) -> bool:
         """

@@ -112,20 +112,40 @@ function updateMonitoringStatus(data) {
     
     // 更新按钮状态
     updateControlButtons(card, data.status);
+    
+    // 如果状态变化，刷新需求列表和日志
+    if (data.status === 'collecting' || data.status === 'idle' || data.status === 'running') {
+        if (typeof loadDemands === 'function') {
+            setTimeout(loadDemands, 1000);
+        }
+        if (typeof loadLogs === 'function') {
+            setTimeout(loadLogs, 1000);
+        }
+    }
 }
 
 // 更新控制按钮状态
 function updateControlButtons(card, status) {
-    const startBtn = card.querySelector('.start-monitoring-btn');
-    const stopBtn = card.querySelector('.stop-monitoring-btn');
+    const toggleBtn = card.querySelector('.toggle-monitoring-btn');
     
-    if (startBtn && stopBtn) {
-        if (status === 'running' || status === 'collecting') {
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
+    if (toggleBtn) {
+        const isRunning = status === 'running' || status === 'collecting';
+        
+        // 更新按钮文本和样式
+        if (isRunning) {
+            toggleBtn.textContent = '⏸ 停止';
+            toggleBtn.className = 'btn btn-sm btn-warning toggle-monitoring-btn';
+            toggleBtn.onclick = () => toggleCommunityMonitoring(
+                parseInt(toggleBtn.dataset.communityId), 
+                true
+            );
         } else {
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
+            toggleBtn.textContent = '▶ 启动';
+            toggleBtn.className = 'btn btn-sm btn-success toggle-monitoring-btn';
+            toggleBtn.onclick = () => toggleCommunityMonitoring(
+                parseInt(toggleBtn.dataset.communityId), 
+                false
+            );
         }
     }
 }
@@ -201,6 +221,10 @@ async function startCommunityMonitoring(communityId) {
         
         if (result.success) {
             showSuccessMessage(result.message);
+            // 刷新社区列表以更新按钮状态
+            if (typeof loadCommunities === 'function') {
+                setTimeout(loadCommunities, 500);
+            }
         } else {
             showErrorMessage(result.message);
         }
@@ -228,6 +252,10 @@ async function stopCommunityMonitoring(communityId) {
         
         if (result.success) {
             showSuccessMessage(result.message);
+            // 刷新社区列表以更新按钮状态
+            if (typeof loadCommunities === 'function') {
+                setTimeout(loadCommunities, 500);
+            }
         } else {
             showErrorMessage(result.message);
         }
@@ -302,26 +330,26 @@ async function stopAllMonitoring() {
 
 // 显示成功消息
 function showSuccessMessage(message) {
-    const notification = document.createElement('div');
-    notification.className = 'notification notification-success';
-    notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.classList.add('show');
-    }, 100);
-    
-    setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
+    if (typeof showNotification === 'function') {
+        showNotification(message, 'success');
+    } else {
+        showNotificationFallback(message, 'success');
+    }
 }
 
 // 显示错误消息
 function showErrorMessage(message) {
+    if (typeof showNotification === 'function') {
+        showNotification(message, 'error');
+    } else {
+        showNotificationFallback(message, 'error');
+    }
+}
+
+// 备用通知函数（如果页面没有定义showNotification）
+function showNotificationFallback(message, type = 'info') {
     const notification = document.createElement('div');
-    notification.className = 'notification notification-error';
+    notification.className = `notification notification-${type}`;
     notification.textContent = message;
     
     document.body.appendChild(notification);
@@ -333,7 +361,7 @@ function showErrorMessage(message) {
     setTimeout(() => {
         notification.classList.remove('show');
         setTimeout(() => notification.remove(), 300);
-    }, 5000);
+    }, type === 'error' ? 5000 : 3000);
 }
 
 // 格式化日期时间

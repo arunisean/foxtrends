@@ -312,6 +312,128 @@
             background: #6c757d;
         }
         
+        .community-status-dot.active {
+            background: #28a745;
+        }
+        
+        /* 监控状态徽章 */
+        .monitoring-status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-not_started {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+        
+        .status-running {
+            background: #d4edda;
+            color: #155724;
+            animation: pulse-status 2s infinite;
+        }
+        
+        .status-collecting {
+            background: #cce5ff;
+            color: #004085;
+            animation: pulse-status 2s infinite;
+        }
+        
+        .status-idle {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-paused {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-stopped {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        @keyframes pulse-status {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+        
+        /* 通知样式 */
+        .notification {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10000;
+            max-width: 400px;
+            font-size: 14px;
+        }
+        
+        .notification-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        
+        .notification-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .notification-warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .notification-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .notification.show {
+            animation: slideIn 0.3s ease;
+        }
+        
         .community-meta {
             font-size: 13px;
             color: #666;
@@ -451,6 +573,42 @@
             background: #c82333;
         }
         
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn-success:disabled {
+            background: #94d3a2;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+        
+        .btn-warning:disabled {
+            background: #ffe69c;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .btn-secondary:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
         .btn-small, .btn-sm {
             padding: 6px 12px;
             font-size: 12px;
@@ -480,31 +638,6 @@
             .two-column-layout {
                 grid-template-columns: 1fr;
             }
-        }
-        /* 控制按钮 */
-        .control-btn {
-            font-family: 'JetBrains Mono', monospace;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.4);
-            color: white;
-            padding: 8px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            margin-right: 20px;
-        }
-        
-        .control-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: rgba(255, 255, 255, 0.6);
-            transform: translateY(-2px);
-        }
-        
-        .control-btn.running {
-            background: rgba(255, 59, 48, 0.3);
-            border-color: rgba(255, 59, 48, 0.6);
         }
         
         /* 确认对话框 */
@@ -771,14 +904,12 @@
                     <span id="system-status-text">AGENTS</span>
                 </div>
                 <div class="status-item">
-                    <span>TASKS: <strong id="active-tasks">0</strong></span>
+                    <span>⏱ 采集间隔: <strong>60秒</strong></span>
                 </div>
             </div>
             <div class="status-bar-right">
-                <button id="system-control-btn" class="control-btn" onclick="toggleSystem()">
-                    <span id="control-btn-text">▶ START</span>
-                </button>
                 <span id="last-update">LAST_UPDATE: --</span>
+                <span id="refresh-countdown" style="margin-left: 15px; opacity: 0.8;">⏱ 刷新: --</span>
             </div>
         </div>
     </div>
@@ -815,7 +946,19 @@
             <div class="section">
                 <div class="section-header">
                     <h2>最新需求信号</h2>
-                    <button class="btn btn-secondary btn-small" onclick="refreshDemands()">刷新</button>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="demand-sort" onchange="loadDemands(1)" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ddd;">
+                            <option value="hotness">按热度</option>
+                            <option value="time">按时间</option>
+                        </select>
+                        <select id="demand-community-filter" onchange="loadDemands(1)" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ddd;">
+                            <option value="">所有社区</option>
+                        </select>
+                        <span id="demand-page-info" style="font-size: 13px; color: #666;">第 1 页</span>
+                        <button class="btn btn-secondary btn-small" onclick="loadDemands(currentDemandPage - 1)" id="prev-demand-btn">上一页</button>
+                        <button class="btn btn-secondary btn-small" onclick="loadDemands(currentDemandPage + 1)" id="next-demand-btn">下一页</button>
+                        <button class="btn btn-secondary btn-small" onclick="refreshDemands()">刷新</button>
+                    </div>
                 </div>
                 <ul class="demand-list" id="demand-list">
                     <li class="loading">加载中...</li>
@@ -842,7 +985,11 @@
         <div class="section">
             <div class="section-header">
                 <h2>监控社区</h2>
-                <button class="btn btn-primary" onclick="showAddCommunity()">添加社区</button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-success" id="start-all-monitoring-btn" onclick="startAllMonitoring()">▶ 启动所有监控</button>
+                    <button class="btn btn-warning" id="stop-all-monitoring-btn" onclick="stopAllMonitoring()">⏸ 停止所有监控</button>
+                    <button class="btn btn-primary" onclick="showAddCommunity()">➕ 添加社区</button>
+                </div>
             </div>
             <div class="community-grid" id="community-grid">
                 <div class="loading">加载中...</div>
@@ -869,7 +1016,7 @@
                         dbText.textContent = '数据库未连接';
                     }
                     
-                    // 系统状态
+                    // ForumEngine 状态（始终运行）
                     const systemIndicator = document.getElementById('system-indicator');
                     const systemText = document.getElementById('system-status-text');
                     if (!data.database_connected) {
@@ -877,7 +1024,7 @@
                         systemText.textContent = 'OFFLINE';
                     } else {
                         systemIndicator.className = 'status-indicator green';
-                        systemText.textContent = 'RUNNING';
+                        systemText.textContent = 'FORUM_READY';
                     }
                     
                     // 监控任务数
@@ -910,10 +1057,34 @@
             }
         }
         
+        // 需求列表分页
+        let currentDemandPage = 1;
+        const demandsPerPage = 10;
+        
         // 加载需求列表
-        async function loadDemands() {
+        async function loadDemands(page = null) {
+            if (page !== null) {
+                if (page < 1) return;
+                currentDemandPage = page;
+            }
+            
             try {
-                const response = await fetch('/api/demands?limit=10');
+                const offset = (currentDemandPage - 1) * demandsPerPage;
+                
+                // 获取过滤和排序参数
+                const sortBy = document.getElementById('demand-sort')?.value || 'hotness';
+                const communityFilter = document.getElementById('demand-community-filter')?.value || '';
+                
+                // 构建查询URL
+                let url = `/api/demands?limit=${demandsPerPage}&offset=${offset}`;
+                if (communityFilter) {
+                    url += `&community_id=${communityFilter}`;
+                }
+                if (sortBy === 'time') {
+                    url += `&sort=time`;
+                }
+                
+                const response = await fetch(url);
                 const data = await response.json();
                 
                 const listEl = document.getElementById('demand-list');
@@ -927,7 +1098,7 @@
                                     <div class="hotness-bar">
                                         <div class="hotness-fill" style="width: ${demand.hotness_score}%"></div>
                                     </div>
-                                    <span class="hotness-score">${demand.hotness_score.toFixed(1)}</span>
+                                    <span class="hotness-score" title="热度 = 讨论数×0.4 + 参与者×0.6">${demand.hotness_score.toFixed(1)}</span>
                                 </div>
                             </div>
                             <div class="demand-meta">
@@ -936,8 +1107,17 @@
                             </div>
                         </li>
                     `).join('');
+                    
+                    // 更新分页信息
+                    document.getElementById('demand-page-info').textContent = `第 ${currentDemandPage} 页`;
+                    
+                    // 更新按钮状态
+                    document.getElementById('prev-demand-btn').disabled = currentDemandPage === 1;
+                    document.getElementById('next-demand-btn').disabled = data.demands.length < demandsPerPage;
                 } else {
                     listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>暂无需求信号</p></div>';
+                    document.getElementById('prev-demand-btn').disabled = true;
+                    document.getElementById('next-demand-btn').disabled = true;
                 }
             } catch (error) {
                 console.error('加载需求列表失败:', error);
@@ -983,8 +1163,12 @@
                 const gridEl = document.getElementById('community-grid');
                 
                 if (data.success && data.communities.length > 0) {
-                    gridEl.innerHTML = data.communities.map(community => `
-                        <div class="community-card">
+                    gridEl.innerHTML = data.communities.map(community => {
+                        const monitoringStatus = community.monitoring_status || 'not_started';
+                        const isRunning = monitoringStatus === 'running' || monitoringStatus === 'collecting';
+                        
+                        return `
+                        <div class="community-card" data-community-id="${community.id}" onclick="editCommunity(${community.id}, event)" style="cursor: pointer;">
                             <div class="community-header">
                                 <div class="community-name">${community.name}</div>
                                 <div class="community-status">
@@ -992,17 +1176,38 @@
                                     <span>${getStatusText(community.status)}</span>
                                 </div>
                             </div>
-                            <div class="community-meta">📊 ${community.source_type}</div>
+                            <div class="community-meta">📊 ${community.source_type} | 🔗 ${community.source_url || 'N/A'}</div>
                             <div class="community-stats">
                                 <span>🔥 信号: ${community.total_signals || 0}</span>
                                 <span>⏰ ${community.last_collection_time ? new Date(community.last_collection_time).toLocaleString('zh-CN') : '未采集'}</span>
                             </div>
                             <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; gap: 8px;">
-                                <button class="btn btn-sm btn-secondary" onclick="viewCommunityDetails(${community.id})" style="flex: 1;">查看详情</button>
-                                <button class="btn btn-sm btn-danger" onclick="deleteCommunity(${community.id}, '${community.name}')" style="flex: 1;">删除</button>
+                                <button class="btn btn-sm ${isRunning ? 'btn-warning' : 'btn-success'} toggle-monitoring-btn" 
+                                        onclick="event.stopPropagation(); toggleCommunityMonitoring(${community.id}, ${isRunning})" 
+                                        data-community-id="${community.id}"
+                                        style="flex: 1;">
+                                    ${isRunning ? '⏸ 停止' : '▶ 启动'}
+                                </button>
+                                <button class="btn btn-sm btn-danger" 
+                                        onclick="event.stopPropagation(); deleteCommunity(${community.id}, '${community.name}')" 
+                                        style="flex: 1;">
+                                    🗑 删除
+                                </button>
                             </div>
                         </div>
-                    `).join('');
+                        `;
+                    }).join('');
+                    
+                    // 更新需求过滤下拉框
+                    const filterSelect = document.getElementById('demand-community-filter');
+                    if (filterSelect) {
+                        const currentValue = filterSelect.value;
+                        filterSelect.innerHTML = '<option value="">所有社区</option>' + 
+                            data.communities.map(c => 
+                                `<option value="${c.id}">${c.name}</option>`
+                            ).join('');
+                        filterSelect.value = currentValue;
+                    }
                 } else {
                     gridEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏘️</div><p>暂无监控社区</p></div>';
                 }
@@ -1041,14 +1246,69 @@
             return texts[status] || status;
         }
         
+        function getMonitoringStatusText(status) {
+            const texts = {
+                'not_started': '未开始',
+                'running': '运行中',
+                'collecting': '采集中',
+                'idle': '空闲',
+                'paused': '已暂停',
+                'stopped': '已停止',
+                'error': '错误'
+            };
+            return texts[status] || status;
+        }
+        
         function viewDemand(id) {
             window.location.href = `/demand/${id}`;
         }
         
-        // 查看社区详情
-        function viewCommunityDetails(id) {
-            // TODO: 实现社区详情页面
-            showNotification('社区详情功能开发中...', 'info');
+        // 切换社区监控状态
+        async function toggleCommunityMonitoring(communityId, isRunning) {
+            if (isRunning) {
+                // 当前正在运行，执行停止
+                await stopCommunityMonitoring(communityId);
+            } else {
+                // 当前已停止，执行启动
+                await startCommunityMonitoring(communityId);
+            }
+        }
+        
+        // 编辑社区
+        async function editCommunity(id, event) {
+            // 阻止事件冒泡
+            if (event) event.stopPropagation();
+            
+            try {
+                // 获取社区详情
+                const response = await fetch(`/api/communities/${id}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const community = data.community;
+                    
+                    // 显示编辑信息（简化版，使用alert）
+                    const keywords = community.config?.keywords?.join(', ') || '无';
+                    const description = community.config?.description || '无';
+                    
+                    const info = `社区信息：
+                    
+名称: ${community.name}
+类型: ${community.source_type}
+URL: ${community.source_url || '无'}
+关键字: ${keywords}
+描述: ${description}
+
+提示：如需修改配置，请使用数据库工具或API`;
+                    
+                    alert(info);
+                } else {
+                    showNotification('获取社区信息失败', 'error');
+                }
+            } catch (error) {
+                console.error('获取社区信息失败:', error);
+                showNotification('获取社区信息失败', 'error');
+            }
         }
         
         // 删除社区
@@ -1308,6 +1568,35 @@
             loadLogs();
         }
         
+        // 倒计时功能
+        let countdownSeconds = 20;
+        let countdownInterval;
+        
+        function startCountdown() {
+            countdownSeconds = 20;
+            updateCountdownDisplay();
+            
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+            
+            countdownInterval = setInterval(() => {
+                countdownSeconds--;
+                updateCountdownDisplay();
+                
+                if (countdownSeconds <= 0) {
+                    countdownSeconds = 20;
+                }
+            }, 1000);
+        }
+        
+        function updateCountdownDisplay() {
+            const countdownEl = document.getElementById('refresh-countdown');
+            if (countdownEl) {
+                countdownEl.textContent = `⏱ 刷新: ${countdownSeconds}秒`;
+            }
+        }
+        
         // 初始化
         window.addEventListener('load', () => {
             updateSystemStatus();
@@ -1316,116 +1605,23 @@
             loadLogs();
             loadCommunities();
             
-            // 定期刷新（降低频率以减少数据库压力）
-            setInterval(updateSystemStatus, 30000);  // 30秒刷新状态栏
-            setInterval(loadLogs, 60000);  // 60秒刷新日志
+            // 启动倒计时
+            startCountdown();
+            
+            // 定期刷新（优化频率以获得更好的实时性）
+            setInterval(updateSystemStatus, 10000);  // 10秒刷新状态栏
+            setInterval(loadLogs, 15000);  // 15秒刷新日志
             setInterval(() => {
                 loadStats();
                 loadDemands();
-                loadCommunities();
-            }, 60000);  // 60秒刷新数据
+                loadCommunities();  // 刷新社区列表以更新按钮状态
+                countdownSeconds = 20;  // 重置倒计时
+            }, 20000);  // 20秒刷新数据
         });
         
-        // 系统控制功能
-        let systemRunning = false;
-        
-        async function toggleSystem() {
-            if (systemRunning) {
-                showConfirmDialog(
-                    '停止系统',
-                    '确定要停止系统吗？这将停止所有爬虫任务和 Agent 分析。',
-                    async () => {
-                        await stopSystem();
-                    }
-                );
-            } else {
-                showConfirmDialog(
-                    '启动系统',
-                    '确定要启动系统吗？这将开始爬虫采集和 LLM 分析，可能会产生 API 费用。',
-                    async () => {
-                        await startSystem();
-                    }
-                );
-            }
-        }
-        
-        async function startSystem() {
-            const btn = document.getElementById('system-control-btn');
-            const btnText = document.getElementById('control-btn-text');
-            
-            btn.disabled = true;
-            btnText.textContent = '⏳ STARTING...';
-            
-            try {
-                const response = await fetch('/api/system/start', {
-                    method: 'POST'
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                    systemRunning = true;
-                    btn.classList.add('running');
-                    btnText.textContent = '⏹ STOP';
-                    showNotification('系统已启动', 'success');
-                } else {
-                    showNotification('启动失败: ' + data.message, 'error');
-                }
-            } catch (error) {
-                console.error('启动系统失败:', error);
-                showNotification('启动失败', 'error');
-            } finally {
-                btn.disabled = false;
-            }
-        }
-        
-        async function stopSystem() {
-            const btn = document.getElementById('system-control-btn');
-            const btnText = document.getElementById('control-btn-text');
-            
-            btn.disabled = true;
-            btnText.textContent = '⏳ STOPPING...';
-            
-            try {
-                const response = await fetch('/api/system/stop', {
-                    method: 'POST'
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                    systemRunning = false;
-                    btn.classList.remove('running');
-                    btnText.textContent = '▶ START';
-                    showNotification('系统已停止', 'success');
-                } else {
-                    showNotification('停止失败: ' + data.message, 'error');
-                }
-            } catch (error) {
-                console.error('停止系统失败:', error);
-                showNotification('停止失败', 'error');
-            } finally {
-                btn.disabled = false;
-            }
-        }
-        
-        function showConfirmDialog(title, message, onConfirm) {
-            const dialog = document.getElementById('confirm-dialog');
-            document.getElementById('confirm-title').textContent = title;
-            document.getElementById('confirm-message').textContent = message;
-            
-            dialog.classList.add('show');
-            
-            // 设置确认按钮
-            const confirmBtn = document.getElementById('confirm-yes');
-            confirmBtn.onclick = () => {
-                dialog.classList.remove('show');
-                onConfirm();
-            };
-            
-            // 设置取消按钮
-            document.getElementById('confirm-no').onclick = () => {
-                dialog.classList.remove('show');
-            };
-        }
+        // 系统控制功能已移除
+        // ForumEngine 在应用启动时自动初始化
+        // 监控通过专用的监控控制按钮管理
         
         function showNotification(message, type = 'info') {
             // 简单的通知实现
@@ -1576,5 +1772,8 @@
             </div>
         </div>
     </div>
+    
+    <!-- 引入监控控制脚本 -->
+    <script src="{{ url_for('static', filename='js/monitoring-control.js') }}"></script>
 </body>
 </html>

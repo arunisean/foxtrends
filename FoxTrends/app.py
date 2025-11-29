@@ -84,15 +84,15 @@ CONFIG_KEYS = [
     'DB_NAME',
     'DB_CHARSET',
     # Agent配置
-    'COMMUNITY_INSIGHT_AGENT_API_KEY',
-    'COMMUNITY_INSIGHT_AGENT_BASE_URL',
-    'COMMUNITY_INSIGHT_AGENT_MODEL_NAME',
-    'CONTENT_ANALYSIS_AGENT_API_KEY',
-    'CONTENT_ANALYSIS_AGENT_BASE_URL',
-    'CONTENT_ANALYSIS_AGENT_MODEL_NAME',
-    'TREND_DISCOVERY_AGENT_API_KEY',
-    'TREND_DISCOVERY_AGENT_BASE_URL',
-    'TREND_DISCOVERY_AGENT_MODEL_NAME',
+    'COMMUNITY_INSIGHT_API_KEY',
+    'COMMUNITY_INSIGHT_BASE_URL',
+    'COMMUNITY_INSIGHT_MODEL_NAME',
+    'CONTENT_ANALYSIS_API_KEY',
+    'CONTENT_ANALYSIS_BASE_URL',
+    'CONTENT_ANALYSIS_MODEL_NAME',
+    'TREND_DISCOVERY_API_KEY',
+    'TREND_DISCOVERY_BASE_URL',
+    'TREND_DISCOVERY_MODEL_NAME',
     # ForumEngine配置
     'FORUM_HOST_API_KEY',
     'FORUM_HOST_BASE_URL',
@@ -488,11 +488,10 @@ def initialize_system_components():
         logger.info(f"找到 {len(active_communities)} 个活跃社区")
         logs.append(f"找到 {len(active_communities)} 个活跃社区")
         
-        # 注意：真实数据采集功能尚未实现，不自动启动监控
-        # 用户可以在Dashboard中手动启动监控（但目前只会生成mock数据）
+        # 用户可以在Dashboard中手动启动监控
         if active_communities:
-            logs.append("提示：真实数据采集功能尚未实现，监控功能暂时禁用")
-            logger.warning("真实数据采集功能尚未实现，监控功能暂时禁用")
+            logs.append(f"提示：可在Dashboard中启动 {len(active_communities)} 个社区的监控")
+            logger.info(f"可在Dashboard中启动 {len(active_communities)} 个社区的监控")
         
     except Exception as e:
         error_msg = f"检查社区状态失败: {e}"
@@ -705,22 +704,52 @@ def list_communities():
     """获取所有社区列表"""
     try:
         from NicheEngine.engine import NicheEngine
+        from sqlalchemy import text
+        
         engine = NicheEngine()
         communities = engine.list_communities()
         
-        return jsonify({
-            'success': True,
-            'communities': [
-                {
+        # 获取每个社区的详细信息（包括统计数据）
+        community_list = []
+        with engine.db_manager.engine.connect() as conn:
+            for c in communities:
+                # 查询社区的完整信息
+                result = conn.execute(
+                    text("""
+                        SELECT monitoring_status, total_signals, error_count, 
+                               duplicate_count, last_collection_time
+                        FROM communities WHERE id = :id
+                    """),
+                    {'id': c.id}
+                ).fetchone()
+                
+                # 处理时间戳（SQLite返回字符串，PostgreSQL/MySQL返回datetime对象）
+                last_collection_time = None
+                if result and result[4]:
+                    if hasattr(result[4], 'isoformat'):
+                        last_collection_time = result[4].isoformat()
+                    else:
+                        last_collection_time = str(result[4])
+                
+                community_list.append({
                     'id': c.id,
                     'name': c.name,
                     'source_type': c.source_type,
-                    'status': c.status
-                }
-                for c in communities
-            ]
+                    'source_url': c.source_url,
+                    'status': c.status,
+                    'monitoring_status': result[0] if result else 'not_started',
+                    'total_signals': result[1] if result else 0,
+                    'error_count': result[2] if result else 0,
+                    'duplicate_count': result[3] if result else 0,
+                    'last_collection_time': last_collection_time
+                })
+        
+        return jsonify({
+            'success': True,
+            'communities': community_list
         })
     except Exception as e:
+        logger.error(f"获取社区列表失败: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
@@ -808,6 +837,55 @@ def delete_community(community_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/api/communities/<int:community_id>', methods=['GET'])
+def get_community(community_id):
+    """获取单个社区详情"""
+    try:
+        from NicheEngine.engine import NicheEngine
+        import json
+        
+        engine = NicheEngine()
+        
+        # 从数据库获取社区详情
+        with engine.db_manager.engine.connect() as conn:
+            from sqlalchemy import text
+            result = conn.execute(
+                text("""
+                    SELECT id, name, source_type, source_url, config, status,
+                           monitoring_status, total_signals, last_collection_time
+                    FROM communities WHERE id = :id
+                """),
+                {'id': community_id}
+            ).fetchone()
+            
+            if not result:
+                return jsonify({'success': False, 'message': '社区不存在'}), 404
+            
+            # 解析配置
+            config = json.loads(result[4]) if result[4] else {}
+            
+            community = {
+                'id': result[0],
+                'name': result[1],
+                'source_type': result[2],
+                'source_url': result[3],
+                'config': config,
+                'status': result[5],
+                'monitoring_status': result[6],
+                'total_signals': result[7],
+                'last_collection_time': str(result[8]) if result[8] else None
+            }
+            
+            return jsonify({
+                'success': True,
+                'community': community
+            })
+            
+    except Exception as e:
+        logger.error(f"获取社区详情失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/api/demands', methods=['GET'])
 def list_demands():
     """获取需求信号列表"""
@@ -822,6 +900,7 @@ def list_demands():
         offset = request.args.get('offset', 0, type=int)
         signal_type = request.args.get('signal_type', None)
         community_id = request.args.get('community_id', None, type=int)
+        sort_by = request.args.get('sort', 'hotness')  # hotness 或 time
         
         # 构建查询
         query = """
@@ -853,7 +932,12 @@ def list_demands():
             query += " AND ds.community_id = %s"
             params.append(community_id)
         
-        query += " ORDER BY ds.hotness_score DESC, ds.created_at DESC"
+        # 排序
+        if sort_by == 'time':
+            query += " ORDER BY ds.created_at DESC"
+        else:
+            query += " ORDER BY ds.hotness_score DESC, ds.created_at DESC"
+        
         query += " LIMIT %s OFFSET %s"
         params.extend([limit, offset])
         
@@ -1600,51 +1684,42 @@ def get_system_status():
 
 @app.route('/api/system/start', methods=['POST'])
 def start_system():
-    """启动完整系统"""
-    allowed, message = _prepare_system_start()
-    if not allowed:
-        return jsonify({'success': False, 'message': message}), 400
+    """
+    启动完整系统（已废弃）
     
-    try:
-        success, logs, errors = initialize_system_components()
-        if success:
-            _set_system_state(started=True)
-            return jsonify({'success': True, 'message': '系统启动成功', 'logs': logs})
-        
-        _set_system_state(started=False)
-        return jsonify({
-            'success': False,
-            'message': '系统启动失败',
-            'logs': logs,
-            'errors': errors
-        }), 500
-    except Exception as exc:
-        logger.exception("系统启动过程中出现异常")
-        _set_system_state(started=False)
-        return jsonify({'success': False, 'message': f'系统启动异常: {exc}'}), 500
-    finally:
-        _set_system_state(starting=False)
+    ForumEngine 现在在应用启动时自动初始化
+    监控请使用 /api/monitoring/start-all
+    """
+    return jsonify({
+        'success': True, 
+        'message': 'ForumEngine 已在应用启动时自动初始化，请使用监控控制按钮启动监控',
+        'deprecated': True
+    })
 
 
 @app.route('/api/system/stop', methods=['POST'])
 def stop_system():
-    """停止系统"""
+    """
+    停止系统（已废弃）
+    
+    ForumEngine 保持运行状态
+    监控请使用 /api/monitoring/stop-all
+    """
     try:
-        # 停止所有监控任务
+        # 只停止所有监控任务，不停止 ForumEngine
         from NicheEngine.monitoring_manager import MonitoringManager
         manager = MonitoringManager()
-        manager.stop_all()
+        result = manager.stop_all_monitoring()
         
-        # 停止 ForumEngine
-        stop_forum_engine()
-        
-        # 更新系统状态
-        _set_system_state(started=False, starting=False)
-        
-        return jsonify({'success': True, 'message': '系统已停止'})
+        return jsonify({
+            'success': True, 
+            'message': f'已停止 {result["stopped"]} 个监控任务',
+            'deprecated': True,
+            'note': 'ForumEngine 保持运行，请使用 /api/monitoring/stop-all'
+        })
     except Exception as exc:
-        logger.exception("停止系统失败")
-        return jsonify({'success': False, 'message': f'停止系统失败: {exc}'}), 500
+        logger.exception("停止监控失败")
+        return jsonify({'success': False, 'message': f'停止监控失败: {exc}'}), 500
 
 
 # ==================== SocketIO事件 ====================
@@ -2270,11 +2345,42 @@ if __name__ == '__main__':
     PORT = settings.PORT
     
     logger.info("FoxTrends 系统正在启动...")
-    logger.info("等待配置确认，系统将在前端指令后启动组件...")
+    
+    # 自动初始化 ForumEngine（后台待命）
+    try:
+        logger.info("正在初始化 ForumEngine...")
+        success = start_forum_engine()
+        if success:
+            logger.info("✓ ForumEngine 初始化成功")
+        else:
+            logger.warning("⚠ ForumEngine 初始化失败，报告生成功能可能受影响")
+    except Exception as e:
+        logger.error(f"✗ ForumEngine 初始化异常: {e}")
+    
     logger.info(f"Flask服务器已启动，访问地址: http://{HOST}:{PORT}")
+    logger.info("提示：在 Dashboard 中可以启动社区监控")
     
     try:
         socketio.run(app, host=HOST, port=PORT, debug=False)
     except KeyboardInterrupt:
         logger.info("\n正在关闭应用...")
+        
+        # 停止所有监控任务
+        try:
+            from NicheEngine.monitoring_manager import MonitoringManager
+            manager = MonitoringManager()
+            result = manager.stop_all_monitoring()
+            logger.info(f"已停止 {result['stopped']} 个监控任务")
+        except Exception as e:
+            logger.error(f"停止监控任务失败: {e}")
+        
+        # 停止 ForumEngine
+        try:
+            stop_forum_engine()
+            logger.info("ForumEngine 已停止")
+        except Exception as e:
+            logger.error(f"停止 ForumEngine 失败: {e}")
+        
+        # 清理其他进程
         cleanup_processes()
+        logger.info("应用已关闭")

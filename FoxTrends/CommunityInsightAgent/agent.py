@@ -32,9 +32,9 @@ class CommunityInsightAgent:
             config: 配置字典，如果不提供则使用默认配置
         """
         self.config = config or {}
-        self.api_key = self.config.get('api_key') or settings.COMMUNITY_INSIGHT_AGENT_API_KEY
-        self.base_url = self.config.get('base_url') or settings.COMMUNITY_INSIGHT_AGENT_BASE_URL
-        self.model_name = self.config.get('model_name') or settings.COMMUNITY_INSIGHT_AGENT_MODEL_NAME
+        self.api_key = self.config.get('api_key') or settings.COMMUNITY_INSIGHT_API_KEY
+        self.base_url = self.config.get('base_url') or settings.COMMUNITY_INSIGHT_BASE_URL
+        self.model_name = self.config.get('model_name') or settings.COMMUNITY_INSIGHT_MODEL_NAME
         
         # 初始化LLM客户端
         if self.api_key:

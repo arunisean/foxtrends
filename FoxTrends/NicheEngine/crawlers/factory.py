@@ -38,6 +38,7 @@ class CrawlerFactory:
         Raises:
             ValueError: 不支持的社区类型
         """
+        logger.debug(f"创建爬虫 - 类型: {source_type}, URL: {url}, 配置: {config}")
         config = config or {}
         
         try:

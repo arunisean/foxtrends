@@ -160,21 +160,22 @@ class NicheEngine:
         
         with self.db_manager.engine.connect() as conn:
             result = conn.execute(
-                text("SELECT id, name, source_type, config, status, created_at FROM communities ORDER BY created_at DESC")
+                text("SELECT id, name, source_type, source_url, config, status, created_at FROM communities ORDER BY created_at DESC")
             )
             
             for row in result:
                 # 解析 config JSON
                 try:
-                    config = json.loads(row[3]) if row[3] else {}
+                    config = json.loads(row[4]) if row[4] else {}
                 except:
                     config = {}
                 
                 community = Community(
                     name=row[1],
                     source_type=row[2],
+                    source_url=row[3],  # 添加 source_url
                     config=config,
-                    status=row[4]
+                    status=row[5]
                 )
                 community.id = row[0]
                 communities.append(community)
@@ -187,6 +188,8 @@ class NicheEngine:
         """
         计算需求热度分数
         
+        热度 = 讨论数 × 0.4 + 参与者数 × 0.6
+        
         Args:
             signal: 需求信号
             discussion_count: 讨论次数
@@ -195,24 +198,16 @@ class NicheEngine:
         Returns:
             热度分数 (0.0 - 100.0)
         """
-        # 基础分数
-        base_score = 0.0
-        
-        # 情感分数贡献 (0-30分)
-        if signal.sentiment_score is not None:
-            # 将 -1.0~1.0 映射到 0~30
-            sentiment_contribution = (signal.sentiment_score + 1.0) * 15
-            base_score += sentiment_contribution
-        
         # 讨论次数贡献 (0-40分)
         discussion_contribution = min(discussion_count * 2, 40)
-        base_score += discussion_contribution
         
-        # 参与人数贡献 (0-30分)
-        participant_contribution = min(participant_count * 3, 30)
-        base_score += participant_contribution
+        # 参与人数贡献 (0-60分)
+        participant_contribution = min(participant_count * 3, 60)
+        
+        # 总分
+        hotness_score = discussion_contribution + participant_contribution
         
         # 确保分数在 0-100 范围内
-        hotness_score = max(0.0, min(100.0, base_score))
+        hotness_score = max(0.0, min(100.0, hotness_score))
         
         return hotness_score

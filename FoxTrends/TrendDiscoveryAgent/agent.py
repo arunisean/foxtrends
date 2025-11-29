@@ -27,9 +27,9 @@ class TrendDiscoveryAgent:
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         """初始化Agent"""
         self.config = config or {}
-        self.api_key = self.config.get('api_key') or settings.TREND_DISCOVERY_AGENT_API_KEY
-        self.base_url = self.config.get('base_url') or settings.TREND_DISCOVERY_AGENT_BASE_URL
-        self.model_name = self.config.get('model_name') or settings.TREND_DISCOVERY_AGENT_MODEL_NAME
+        self.api_key = self.config.get('api_key') or settings.TREND_DISCOVERY_API_KEY
+        self.base_url = self.config.get('base_url') or settings.TREND_DISCOVERY_BASE_URL
+        self.model_name = self.config.get('model_name') or settings.TREND_DISCOVERY_MODEL_NAME
         
         # 初始化LLM客户端
         if self.api_key:

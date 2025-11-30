@@ -624,7 +624,7 @@ class MonitoringTask:
     
     def _trigger_agent_analysis(self, signal_id: int, signal_data: Dict[str, Any]):
         """
-        触发Agent分析（异步执行，不阻塞监控）
+        触发Agent分析（通过速率限制器异步执行，不阻塞监控）
         
         Args:
             signal_id: 需求信号ID
@@ -634,10 +634,10 @@ class MonitoringTask:
             return
         
         try:
-            # 在后台线程中执行Agent分析，避免阻塞监控
-            import threading
+            # 使用全局速率限制器提交分析任务
+            from NicheEngine.agent_rate_limiter import get_global_limiter
             
-            def analyze_in_background():
+            def analyze_signal():
                 try:
                     safe_log_info(f"开始Agent分析: 信号 {signal_id}")
                     
@@ -663,9 +663,10 @@ class MonitoringTask:
                 except Exception as e:
                     safe_log_error(f"Agent分析异常: 信号 {signal_id}, 错误: {e}")
             
-            # 启动后台线程
-            thread = threading.Thread(target=analyze_in_background, daemon=True)
-            thread.start()
+            # 提交到速率限制器队列
+            limiter = get_global_limiter()
+            limiter.submit(analyze_signal)
+            safe_log_info(f"Agent分析任务已加入队列: 信号 {signal_id}, 队列大小: {limiter.get_queue_size()}")
             
         except Exception as e:
             safe_log_error(f"触发Agent分析失败: {e}")

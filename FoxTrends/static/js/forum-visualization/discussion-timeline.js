@@ -24,6 +24,9 @@ class DiscussionTimeline {
         this.container.innerHTML = `
             <div class="timeline-container">
                 <div class="timeline-header">
+                    <button class="btn-back-to-table" title="返回圆桌视图" style="margin-right: 10px; padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                        ← 返回圆桌
+                    </button>
                     <h3>💬 讨论时间线</h3>
                     <div class="timeline-controls">
                         <button class="btn-auto-scroll active" title="自动滚动">
@@ -49,6 +52,14 @@ class DiscussionTimeline {
      * 设置事件监听
      */
     _setupEventListeners() {
+        // 返回圆桌按钮
+        const backBtn = this.container.querySelector('.btn-back-to-table');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                this._backToRoundTable();
+            });
+        }
+        
         // 自动滚动按钮
         const autoScrollBtn = this.container.querySelector('.btn-auto-scroll');
         if (autoScrollBtn) {
@@ -72,6 +83,32 @@ class DiscussionTimeline {
         
         // 触摸手势支持
         this._setupTouchGestures();
+    }
+    
+    /**
+     * 返回圆桌视图
+     */
+    _backToRoundTable() {
+        // 查找并点击圆桌视图按钮
+        const visualizationBtn = document.querySelector('.toggle-btn');
+        if (visualizationBtn && visualizationBtn.textContent.includes('圆桌')) {
+            visualizationBtn.click();
+            return;
+        }
+        
+        // 如果没有找到按钮，手动切换
+        const visualizationView = document.getElementById('visualization-view');
+        const roundTableContainer = document.getElementById('round-table-container');
+        
+        if (visualizationView && roundTableContainer) {
+            visualizationView.style.gridTemplateColumns = '2fr 1fr';
+            roundTableContainer.style.display = 'block';
+            this.container.style.display = 'block';
+        }
+        
+        // 触发自定义事件，通知控制器
+        const event = new CustomEvent('backToRoundTable');
+        this.container.dispatchEvent(event);
     }
     
     /**

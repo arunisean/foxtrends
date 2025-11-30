@@ -1399,127 +1399,229 @@ URL: ${community.source_url || '无'}
             document.getElementById('add-community-dialog').classList.add('show');
             // 重置表单
             document.getElementById('add-community-form').reset();
+            // 重置多选列表
+            selectedRedditSubreddits = [];
+            selectedGithubRepos = [];
+            updateRedditSelectedList();
+            updateGithubSelectedList();
+            // 隐藏所有条件输入组
+            document.getElementById('reddit-subreddit-group').style.display = 'none';
+            document.getElementById('github-repo-group').style.display = 'none';
+            document.getElementById('hackernews-note').style.display = 'none';
+            document.getElementById('discourse-url-group').style.display = 'none';
+            document.getElementById('custom-url-group').style.display = 'none';
         }
         
         function closeAddCommunity() {
             document.getElementById('add-community-dialog').classList.remove('show');
         }
         
-        // 从推荐社区快速填充
-        function fillCommunityFromRecommended() {
-            const key = document.getElementById('popular-select').value;
+        // 根据社区类型更新表单显示
+        function updateCommunityForm() {
+            const type = document.getElementById('community-type').value;
             
-            if (!key) return;
+            // 隐藏所有条件输入组
+            document.getElementById('reddit-subreddit-group').style.display = 'none';
+            document.getElementById('github-repo-group').style.display = 'none';
+            document.getElementById('hackernews-note').style.display = 'none';
+            document.getElementById('discourse-url-group').style.display = 'none';
+            document.getElementById('custom-url-group').style.display = 'none';
             
-            const [category, index] = key.split('-');
-            let community = null;
+            // 清空社区名称
+            document.getElementById('community-name').value = '';
             
-            if (category === 'int') {
-                community = recommendedCommunities.international[parseInt(index)];
-            } else if (category === 'cn') {
-                community = recommendedCommunities.chinese[parseInt(index)];
-            }
+            // 重置多选列表
+            selectedRedditSubreddits = [];
+            selectedGithubRepos = [];
+            updateRedditSelectedList();
+            updateGithubSelectedList();
             
-            if (community) {
-                // 自动填充所有字段
-                document.getElementById('community-url').value = community.source_url;
-                document.getElementById('community-type').value = community.source_type;
-                document.getElementById('community-name').value = community.name;
-                document.getElementById('community-keywords').value = community.keywords.join(', ');
-                document.getElementById('community-description').value = community.description;
-                
-                // 如果是中文社区，显示特殊提示
-                if (category === 'cn') {
-                    showNotification('⚠️ 中文社区需要配置MindSpider爬虫并登录。' + (community.note || ''), 'warning');
-                } else {
-                    showNotification('✅ 已自动填充社区信息，您可以继续修改', 'info');
-                }
+            // 根据类型显示对应的输入组
+            if (type === 'reddit') {
+                document.getElementById('reddit-subreddit-group').style.display = 'block';
+            } else if (type === 'github') {
+                document.getElementById('github-repo-group').style.display = 'block';
+            } else if (type === 'hackernews') {
+                document.getElementById('hackernews-note').style.display = 'block';
+            } else if (type === 'discourse') {
+                document.getElementById('discourse-url-group').style.display = 'block';
+            } else if (type === 'custom') {
+                document.getElementById('custom-url-group').style.display = 'block';
             }
         }
         
-        // 根据URL自动识别社区类型
-        function detectCommunityType() {
-            const url = document.getElementById('community-url').value.trim();
-            const typeSelect = document.getElementById('community-type');
+        // 多选数据存储
+        let selectedRedditSubreddits = [];
+        let selectedGithubRepos = [];
+        
+        // Reddit: 添加 subreddit
+        function addRedditSubreddit() {
+            const select = document.getElementById('reddit-subreddit-select');
+            const subreddit = select.value;
             
-            if (!url) {
+            if (!subreddit) {
+                showNotification('请选择一个 subreddit', 'warning');
                 return;
             }
             
-            // 自动识别类型
-            if (url.includes('reddit.com')) {
-                typeSelect.value = 'reddit';
-                // 尝试从URL提取社区名称
-                const match = url.match(/reddit\.com\/r\/([^\/\?]+)/);
-                if (match && !document.getElementById('community-name').value) {
-                    document.getElementById('community-name').value = 'r/' + match[1];
+            if (selectedRedditSubreddits.includes(subreddit)) {
+                showNotification('该 subreddit 已添加', 'warning');
+                return;
+            }
+            
+            selectedRedditSubreddits.push(subreddit);
+            updateRedditSelectedList();
+            select.value = ''; // 重置选择
+        }
+        
+        // Reddit: 添加自定义 subreddit
+        function addRedditCustom() {
+            const input = document.getElementById('reddit-custom-input');
+            const subreddit = input.value.trim();
+            
+            if (!subreddit) {
+                showNotification('请输入 subreddit 名称', 'warning');
+                return;
+            }
+            
+            if (selectedRedditSubreddits.includes(subreddit)) {
+                showNotification('该 subreddit 已添加', 'warning');
+                return;
+            }
+            
+            selectedRedditSubreddits.push(subreddit);
+            updateRedditSelectedList();
+            input.value = ''; // 清空输入
+        }
+        
+        // Reddit: 更新已选列表
+        function updateRedditSelectedList() {
+            const listEl = document.getElementById('reddit-selected-list');
+            const itemsEl = document.getElementById('reddit-selected-items');
+            
+            if (selectedRedditSubreddits.length === 0) {
+                listEl.style.display = 'none';
+                return;
+            }
+            
+            listEl.style.display = 'block';
+            itemsEl.innerHTML = selectedRedditSubreddits.map((sub, index) => `
+                <div style="background: white; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; border: 1px solid #ddd;">
+                    <span style="font-size: 13px;">r/${sub}</span>
+                    <button type="button" onclick="removeRedditSubreddit(${index})" style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 16px; padding: 0; line-height: 1;">×</button>
+                </div>
+            `).join('');
+        }
+        
+        // Reddit: 移除 subreddit
+        function removeRedditSubreddit(index) {
+            selectedRedditSubreddits.splice(index, 1);
+            updateRedditSelectedList();
+        }
+        
+        // GitHub: 添加仓库
+        function addGithubRepo() {
+            const input = document.getElementById('github-repo-input');
+            let repo = input.value.trim();
+            
+            if (!repo) {
+                showNotification('请输入 GitHub 仓库', 'warning');
+                return;
+            }
+            
+            // 如果是完整URL，提取 owner/repo
+            if (repo.includes('github.com')) {
+                const match = repo.match(/github\.com\/([^\/]+\/[^\/\?#]+)/);
+                if (match) {
+                    repo = match[1];
                 }
-            } else if (url.includes('github.com')) {
-                typeSelect.value = 'github';
-                // 尝试从URL提取仓库名称
-                const match = url.match(/github\.com\/([^\/]+\/[^\/\?]+)/);
-                if (match && !document.getElementById('community-name').value) {
-                    document.getElementById('community-name').value = match[1];
-                }
-            } else if (url.includes('news.ycombinator.com')) {
-                typeSelect.value = 'hackernews';
-                if (!document.getElementById('community-name').value) {
-                    document.getElementById('community-name').value = 'HackerNews';
-                }
-            } else if (url.includes('ethresear.ch')) {
-                typeSelect.value = 'discourse';
-                if (!document.getElementById('community-name').value) {
-                    document.getElementById('community-name').value = 'Ethereum Research';
-                }
-            } else {
-                // 自定义网站
-                typeSelect.value = 'custom';
-                // 尝试从URL提取域名作为名称
+            }
+            
+            // 验证格式
+            if (!repo.includes('/')) {
+                showNotification('仓库格式应为: owner/repo', 'error');
+                return;
+            }
+            
+            if (selectedGithubRepos.includes(repo)) {
+                showNotification('该仓库已添加', 'warning');
+                return;
+            }
+            
+            selectedGithubRepos.push(repo);
+            updateGithubSelectedList();
+            input.value = ''; // 清空输入
+        }
+        
+        // GitHub: 更新已选列表
+        function updateGithubSelectedList() {
+            const listEl = document.getElementById('github-selected-list');
+            const itemsEl = document.getElementById('github-selected-items');
+            
+            if (selectedGithubRepos.length === 0) {
+                listEl.style.display = 'none';
+                return;
+            }
+            
+            listEl.style.display = 'block';
+            itemsEl.innerHTML = selectedGithubRepos.map((repo, index) => `
+                <div style="background: white; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; border: 1px solid #ddd;">
+                    <span style="font-size: 13px;">${repo}</span>
+                    <button type="button" onclick="removeGithubRepo(${index})" style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 16px; padding: 0; line-height: 1;">×</button>
+                </div>
+            `).join('');
+        }
+        
+        // GitHub: 移除仓库
+        function removeGithubRepo(index) {
+            selectedGithubRepos.splice(index, 1);
+            updateGithubSelectedList();
+        }
+        
+        // Discourse: 更新URL
+        function updateDiscourseUrl() {
+            const urlInput = document.getElementById('discourse-url-input');
+            const nameInput = document.getElementById('community-name');
+            const value = urlInput.value.trim();
+            
+            if (value) {
                 try {
-                    const urlObj = new URL(url);
-                    if (!document.getElementById('community-name').value) {
-                        document.getElementById('community-name').value = urlObj.hostname.replace('www.', '');
-                    }
+                    const url = new URL(value);
+                    nameInput.value = url.hostname.replace('www.', '');
                 } catch (e) {
                     // URL格式错误，不处理
                 }
             }
         }
         
+        // Custom: 更新URL
+        function updateCustomUrl() {
+            const urlInput = document.getElementById('custom-url-input');
+            const nameInput = document.getElementById('community-name');
+            const value = urlInput.value.trim();
+            
+            if (value) {
+                try {
+                    const url = new URL(value);
+                    nameInput.value = url.hostname.replace('www.', '');
+                } catch (e) {
+                    // URL格式错误，不处理
+                }
+            }
+        }
+        
+
+        
         async function submitAddCommunity() {
             const type = document.getElementById('community-type').value;
-            const name = document.getElementById('community-name').value.trim();
-            const url = document.getElementById('community-url').value.trim();
             const keywords = document.getElementById('community-keywords').value.trim();
             const description = document.getElementById('community-description').value.trim();
             
-            // 验证（URL是必填的）
-            if (!url) {
-                showNotification('请输入社区 URL（必填）', 'error');
-                document.getElementById('community-url').focus();
-                return;
-            }
-            
-            // 如果没有选择类型，尝试自动识别
+            // 验证类型
             if (!type) {
-                detectCommunityType();
-                const detectedType = document.getElementById('community-type').value;
-                if (!detectedType) {
-                    showNotification('无法识别社区类型，请手动选择', 'error');
-                    document.getElementById('community-type').focus();
-                    return;
-                }
-            }
-            
-            // 如果没有输入名称，使用URL自动提取的名称
-            if (!name) {
-                detectCommunityType(); // 这会尝试填充名称
-                const autoName = document.getElementById('community-name').value.trim();
-                if (!autoName) {
-                    showNotification('请输入社区显示名称', 'error');
-                    document.getElementById('community-name').focus();
-                    return;
-                }
+                showNotification('请选择社区类型', 'error');
+                document.getElementById('community-type').focus();
+                return;
             }
             
             // 构建配置
@@ -1531,31 +1633,142 @@ URL: ${community.source_url || '无'}
                 config.description = description;
             }
             
+            // 根据类型处理（支持批量）
+            let communities = [];
+            
+            if (type === 'reddit') {
+                if (selectedRedditSubreddits.length === 0) {
+                    showNotification('请至少添加一个 subreddit', 'error');
+                    return;
+                }
+                
+                communities = selectedRedditSubreddits.map(subreddit => ({
+                    name: 'r/' + subreddit,
+                    source_type: 'reddit',
+                    source_url: `https://www.reddit.com/r/${subreddit}/`,
+                    config: config
+                }));
+                
+            } else if (type === 'github') {
+                if (selectedGithubRepos.length === 0) {
+                    showNotification('请至少添加一个 GitHub 仓库', 'error');
+                    return;
+                }
+                
+                communities = selectedGithubRepos.map(repo => ({
+                    name: repo,
+                    source_type: 'github',
+                    source_url: `https://github.com/${repo}`,
+                    config: config
+                }));
+                
+            } else if (type === 'hackernews') {
+                communities = [{
+                    name: 'HackerNews',
+                    source_type: 'hackernews',
+                    source_url: 'https://news.ycombinator.com',
+                    config: config
+                }];
+                
+            } else if (type === 'discourse') {
+                const urlInput = document.getElementById('discourse-url-input');
+                const url = urlInput.value.trim();
+                
+                if (!url) {
+                    showNotification('请输入 Discourse 论坛 URL', 'error');
+                    urlInput.focus();
+                    return;
+                }
+                
+                let name = document.getElementById('community-name').value.trim();
+                try {
+                    const urlObj = new URL(url);
+                    if (!name) {
+                        name = urlObj.hostname.replace('www.', '');
+                    }
+                } catch (e) {
+                    showNotification('请输入有效的 URL', 'error');
+                    urlInput.focus();
+                    return;
+                }
+                
+                communities = [{
+                    name: name,
+                    source_type: 'discourse',
+                    source_url: url,
+                    config: config
+                }];
+                
+            } else if (type === 'custom') {
+                const urlInput = document.getElementById('custom-url-input');
+                const url = urlInput.value.trim();
+                
+                if (!url) {
+                    showNotification('请输入网站 URL', 'error');
+                    urlInput.focus();
+                    return;
+                }
+                
+                let name = document.getElementById('community-name').value.trim();
+                try {
+                    const urlObj = new URL(url);
+                    if (!name) {
+                        name = urlObj.hostname.replace('www.', '');
+                    }
+                } catch (e) {
+                    showNotification('请输入有效的 URL', 'error');
+                    urlInput.focus();
+                    return;
+                }
+                
+                communities = [{
+                    name: name,
+                    source_type: 'custom',
+                    source_url: url,
+                    config: config
+                }];
+            }
+            
+            // 批量添加社区
             try {
-                const response = await fetch('/api/communities', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: name,
-                        source_type: type,
-                        source_url: url,
-                        config: config
-                    })
-                });
+                let successCount = 0;
+                let failCount = 0;
                 
-                const data = await response.json();
+                for (const community of communities) {
+                    try {
+                        const response = await fetch('/api/communities', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(community)
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            successCount++;
+                        } else {
+                            failCount++;
+                            console.error(`添加 ${community.name} 失败:`, data.message);
+                        }
+                    } catch (error) {
+                        failCount++;
+                        console.error(`添加 ${community.name} 失败:`, error);
+                    }
+                }
                 
-                if (data.success) {
-                    showNotification('社区添加成功！监控已启动', 'success');
+                // 显示结果
+                if (successCount > 0) {
+                    showNotification(`成功添加 ${successCount} 个社区${failCount > 0 ? `，${failCount} 个失败` : ''}`, 
+                                   failCount > 0 ? 'warning' : 'success');
                     closeAddCommunity();
                     loadCommunities();
                     loadStats();
                     loadLogs();
                 } else {
-                    showNotification('添加失败: ' + data.message, 'error');
+                    showNotification('所有社区添加失败', 'error');
                 }
             } catch (error) {
-                console.error('添加社区失败:', error);
+                console.error('批量添加社区失败:', error);
                 showNotification('添加失败: ' + error.message, 'error');
             }
         }
@@ -1690,65 +1903,92 @@ URL: ${community.source_url || '无'}
             </div>
             <div class="modal-body">
                 <form id="add-community-form">
-                    <!-- 快速选择推荐社区 -->
+                    <!-- 社区类型选择 -->
                     <div class="form-group">
-                        <label class="form-label">🌟 快速选择推荐社区（可选）</label>
-                        <select id="popular-select" class="form-select" onchange="fillCommunityFromRecommended()">
-                            <option value="">-- 选择推荐社区快速填充，或手动输入 --</option>
-                            <optgroup label="🌍 国际社区">
-                                <option value="int-0">Python Reddit - Python编程社区</option>
-                                <option value="int-1">JavaScript Reddit - JavaScript开发社区</option>
-                                <option value="int-2">Machine Learning Reddit - 机器学习研究</option>
-                                <option value="int-3">FastAPI GitHub - FastAPI框架</option>
-                                <option value="int-4">React GitHub - React框架</option>
-                                <option value="int-5">PyTorch GitHub - PyTorch深度学习</option>
-                                <option value="int-6">HackerNews - 技术新闻社区</option>
-                                <option value="int-7">Ethereum Research - 以太坊研究论坛</option>
-                                <option value="int-8">Rust Users Forum - Rust用户论坛</option>
-                            </optgroup>
-                            <optgroup label="🇨🇳 中文社区（暂不支持）">
-                                <option value="" disabled>小红书 - 生活方式分享平台 [待支持]</option>
-                                <option value="" disabled>抖音 - 短视频分享平台 [待支持]</option>
-                                <option value="" disabled>快手 - 短视频社交平台 [待支持]</option>
-                                <option value="" disabled>B站 - 视频弹幕网站 [待支持]</option>
-                                <option value="" disabled>微博 - 社交媒体平台 [待支持]</option>
-                                <option value="" disabled>贴吧 - 百度贴吧社区 [待支持]</option>
-                                <option value="" disabled>知乎 - 问答知识社区 [待支持]</option>
-                            </optgroup>
+                        <label class="form-label">社区类型 *</label>
+                        <select id="community-type" class="form-select" onchange="updateCommunityForm()">
+                            <option value="">-- 选择社区类型 --</option>
+                            <option value="reddit">📱 Reddit 社区</option>
+                            <option value="github">💻 GitHub 仓库</option>
+                            <option value="hackernews">🔶 HackerNews</option>
+                            <option value="discourse">💬 Discourse 论坛</option>
+                            <option value="custom">🌐 其他网站</option>
                         </select>
-                        <small class="form-hint">💡 选择后会自动填充下方信息。<span style="color: #999;">中文社区暂不支持，需要配置MindSpider爬虫</span></small>
                     </div>
                     
-                    <div style="text-align: center; margin: 20px 0; color: #999; font-size: 14px; font-weight: 500;">
-                        ━━━━━━━━━━ 或手动输入 ━━━━━━━━━━
+                    <!-- Reddit 专用：Subreddit 多选 -->
+                    <div class="form-group" id="reddit-subreddit-group" style="display: none;">
+                        <label class="form-label">选择 Subreddit（支持多选）*</label>
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <select id="reddit-subreddit-select" class="form-select" style="flex: 1;">
+                                <option value="">-- 选择热门 Subreddit --</option>
+                                <option value="Entrepreneur">r/Entrepreneur - 创业者社区</option>
+                                <option value="indiehackers">r/indiehackers - 独立开发者</option>
+                                <option value="startups">r/startups - 创业公司</option>
+                                <option value="learnmachinelearning">r/learnmachinelearning - 机器学习</option>
+                                <option value="software">r/software - 软件开发</option>
+                                <option value="sysadmin">r/sysadmin - 系统管理</option>
+                                <option value="DataHoarder">r/DataHoarder - 数据存储</option>
+                                <option value="artificial">r/artificial - 人工智能</option>
+                                <option value="python">r/python - Python编程</option>
+                                <option value="javascript">r/javascript - JavaScript开发</option>
+                                <option value="webdev">r/webdev - Web开发</option>
+                                <option value="devops">r/devops - DevOps运维</option>
+                                <option value="aws">r/aws - AWS云服务</option>
+                                <option value="docker">r/docker - Docker容器</option>
+                                <option value="kubernetes">r/kubernetes - K8s编排</option>
+                            </select>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="addRedditSubreddit()" style="white-space: nowrap;">➕ 添加</button>
+                        </div>
+                        <input type="text" id="reddit-custom-input" class="form-input" placeholder="或输入自定义 subreddit 名称（不含 r/），按回车添加" style="margin-bottom: 10px;" onkeypress="if(event.key==='Enter'){event.preventDefault();addRedditCustom();}">
+                        <div id="reddit-selected-list" style="display: none; background: #f8f9fa; padding: 10px; border-radius: 6px; margin-top: 10px;">
+                            <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px;">已选择的 Subreddit：</div>
+                            <div id="reddit-selected-items" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                        </div>
+                        <small class="form-hint">可以选择多个热门社区或输入自定义名称</small>
                     </div>
                     
-                    <!-- 社区 URL（必填） -->
-                    <div class="form-group">
-                        <label class="form-label">社区 URL * <span style="color: #dc3545; font-size: 0.9em;">(必填)</span></label>
-                        <input type="url" id="community-url" class="form-input" placeholder="https://reddit.com/r/python 或 https://github.com/owner/repo 或任何论坛URL" oninput="detectCommunityType()">
-                        <small class="form-hint">输入要监控的社区完整URL地址，系统会自动识别类型</small>
+                    <!-- GitHub 专用：仓库多选 -->
+                    <div class="form-group" id="github-repo-group" style="display: none;">
+                        <label class="form-label">GitHub 仓库（支持多选）*</label>
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <input type="text" id="github-repo-input" class="form-input" placeholder="owner/repo 或完整URL，按回车添加" style="flex: 1;" onkeypress="if(event.key==='Enter'){event.preventDefault();addGithubRepo();}">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="addGithubRepo()" style="white-space: nowrap;">➕ 添加</button>
+                        </div>
+                        <div id="github-selected-list" style="display: none; background: #f8f9fa; padding: 10px; border-radius: 6px; margin-top: 10px;">
+                            <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px;">已选择的仓库：</div>
+                            <div id="github-selected-items" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                        </div>
+                        <small class="form-hint">例如: tiangolo/fastapi 或 https://github.com/tiangolo/fastapi</small>
                     </div>
                     
-                    <!-- 社区类型（自动识别） -->
-                    <div class="form-group">
-                        <label class="form-label">社区类型 <span style="color: #666; font-size: 0.9em;">(自动识别)</span></label>
-                        <select id="community-type" class="form-select">
-                            <option value="">-- 自动识别或手动选择 --</option>
-                            <option value="reddit">Reddit 社区</option>
-                            <option value="github">GitHub 仓库</option>
-                            <option value="hackernews">HackerNews</option>
-                            <option value="discourse">Discourse 论坛</option>
-                            <option value="custom">自定义网站</option>
-                        </select>
-                        <small class="form-hint">系统会根据URL自动识别，也可以手动选择</small>
+                    <!-- HackerNews 提示 -->
+                    <div class="form-group" id="hackernews-note" style="display: none;">
+                        <div style="padding: 15px; background: #e3f2fd; border-left: 4px solid #2196F3; border-radius: 4px;">
+                            <strong>ℹ️ HackerNews 说明</strong>
+                            <p style="margin: 8px 0 0 0; font-size: 13px; color: #666;">HackerNews 监控整个平台的热门话题，无需输入URL。系统会自动填充配置。</p>
+                        </div>
                     </div>
                     
-                    <!-- 社区名称（可选） -->
+                    <!-- Discourse 论坛：URL输入 -->
+                    <div class="form-group" id="discourse-url-group" style="display: none;">
+                        <label class="form-label">Discourse 论坛 URL *</label>
+                        <input type="url" id="discourse-url-input" class="form-input" placeholder="https://ethresear.ch" oninput="updateDiscourseUrl()">
+                        <small class="form-hint">输入 Discourse 论坛的完整URL地址</small>
+                    </div>
+                    
+                    <!-- 其他网站：URL输入 -->
+                    <div class="form-group" id="custom-url-group" style="display: none;">
+                        <label class="form-label">网站 URL *</label>
+                        <input type="url" id="custom-url-input" class="form-input" placeholder="https://example.com" oninput="updateCustomUrl()">
+                        <small class="form-hint">输入要监控的网站完整URL地址</small>
+                    </div>
+                    
+                    <!-- 社区名称（自动生成或手动输入） -->
                     <div class="form-group">
                         <label class="form-label">社区显示名称 <span style="color: #666; font-size: 0.9em;">(可选)</span></label>
-                        <input type="text" id="community-name" class="form-input" placeholder="例如: Python 开发社区">
-                        <small class="form-hint">用于在Dashboard中显示，留空则使用URL自动提取的名称</small>
+                        <input type="text" id="community-name" class="form-input" placeholder="自动生成或手动输入">
+                        <small class="form-hint">用于在Dashboard中显示，留空则自动生成</small>
                     </div>
                     
                     <!-- 关键词（可选） -->

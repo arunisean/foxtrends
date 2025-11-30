@@ -145,49 +145,66 @@ class ForumVisualizationController {
      */
     async _loadHistoricalData() {
         try {
-            // 加载会话信息
-            const sessionResponse = await fetch(`/api/forum/sessions/${this.sessionId}`);
-            if (sessionResponse.ok) {
-                const sessionData = await sessionResponse.json();
-                console.log('[ForumController] 会话数据:', sessionData);
-                
-                // 更新共识度
-                if (sessionData.consensus_level) {
-                    this.roundTable.updateConsensus(sessionData.consensus_level);
+            // 如果有 demandId，从需求讨论API加载
+            if (this.demandId) {
+                const response = await fetch(`/api/demands/${this.demandId}/discussions`);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('[ForumController] 历史讨论:', data);
+                    
+                    if (data.discussions && data.discussions.length > 0) {
+                        // 转换为时间线消息格式
+                        const messages = data.discussions.map(disc => ({
+                            agent_id: disc.agent_name || 'unknown',
+                            agent_name: this._getAgentDisplayName(disc.agent_name),
+                            content: disc.content,
+                            message_type: disc.message_type || 'speech',
+                            timestamp: disc.created_at
+                        }));
+                        
+                        this.timeline.loadMessages(messages);
+                        
+                        // 在圆桌视图中显示Agent状态
+                        const uniqueAgents = [...new Set(messages.map(m => m.agent_id))];
+                        uniqueAgents.forEach(agentId => {
+                            this.roundTable.updateAgentStatus(agentId, 'complete', null);
+                        });
+                    }
                 }
             }
             
-            // 加载消息历史
-            const messagesResponse = await fetch(`/api/forum/sessions/${this.sessionId}/messages`);
-            if (messagesResponse.ok) {
-                const messagesData = await messagesResponse.json();
-                console.log('[ForumController] 历史消息:', messagesData);
-                
-                if (messagesData.messages && messagesData.messages.length > 0) {
-                    this.timeline.loadMessages(messagesData.messages);
+            // 尝试加载会话信息（如果API存在）
+            try {
+                const sessionResponse = await fetch(`/api/forum/sessions/${this.sessionId}`);
+                if (sessionResponse.ok) {
+                    const sessionData = await sessionResponse.json();
+                    console.log('[ForumController] 会话数据:', sessionData);
+                    
+                    if (sessionData.consensus_level) {
+                        this.roundTable.updateConsensus(sessionData.consensus_level);
+                    }
                 }
-            }
-            
-            // 加载 Agent 状态
-            const statesResponse = await fetch(`/api/forum/sessions/${this.sessionId}/agent-states`);
-            if (statesResponse.ok) {
-                const statesData = await statesResponse.json();
-                console.log('[ForumController] Agent 状态:', statesData);
-                
-                if (statesData.states) {
-                    statesData.states.forEach(state => {
-                        this.roundTable.updateAgentStatus(
-                            state.agent_id,
-                            state.status,
-                            state.current_stage
-                        );
-                    });
-                }
+            } catch (e) {
+                // 会话API可能不存在，忽略错误
+                console.log('[ForumController] 会话API不可用');
             }
             
         } catch (error) {
             console.error('[ForumController] 加载历史数据失败:', error);
         }
+    }
+    
+    /**
+     * 获取Agent显示名称
+     */
+    _getAgentDisplayName(agentName) {
+        const nameMap = {
+            'community_insight': '社区洞察',
+            'content_analysis': '内容分析',
+            'trend_discovery': '趋势发现',
+            'forum_host': '论坛主持人'
+        };
+        return nameMap[agentName] || agentName;
     }
 
     /**

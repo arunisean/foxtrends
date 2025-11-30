@@ -480,14 +480,21 @@
             
             // 切换显示
             const visualizationView = document.getElementById('visualization-view');
+            const roundTableContainer = document.getElementById('round-table-container');
+            const timelineContainer = document.getElementById('timeline-container');
             
             if (view === 'visualization') {
+                // 显示圆桌视图
                 visualizationView.style.display = 'grid';
+                visualizationView.style.gridTemplateColumns = '2fr 1fr';
+                roundTableContainer.style.display = 'block';
+                timelineContainer.style.display = 'block';
             } else if (view === 'timeline') {
                 // 只显示时间线
                 visualizationView.style.display = 'grid';
                 visualizationView.style.gridTemplateColumns = '1fr';
-                document.getElementById('round-table-container').style.display = 'none';
+                roundTableContainer.style.display = 'none';
+                timelineContainer.style.display = 'block';
             }
         }
         

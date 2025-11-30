@@ -448,21 +448,42 @@ class AgentOrchestrator:
         """格式化Agent发言"""
         analysis = result.get('analysis', '')
         
+        # 辅助函数：将列表项转换为字符串
+        def format_list(items):
+            if not items:
+                return '无'
+            formatted = []
+            for item in items:
+                if isinstance(item, dict):
+                    # 如果是字典，提取主要信息
+                    if 'pattern' in item:
+                        formatted.append(item['pattern'])
+                    elif 'description' in item:
+                        formatted.append(item['description'])
+                    elif 'name' in item:
+                        formatted.append(item['name'])
+                    else:
+                        # 取第一个值
+                        formatted.append(str(list(item.values())[0]) if item else '')
+                else:
+                    formatted.append(str(item))
+            return ', '.join(formatted)
+        
         # 根据不同Agent提取关键信息
         if agent_name == 'community_insight':
             patterns = result.get('patterns', [])
             trends = result.get('trends', [])
-            speech = f"{analysis}\n\n需求模式: {', '.join(patterns)}\n趋势: {', '.join(trends)}"
+            speech = f"{analysis}\n\n需求模式: {format_list(patterns)}\n趋势: {format_list(trends)}"
         
         elif agent_name == 'content_analysis':
             pain_points = result.get('pain_points', [])
             features = result.get('feature_requests', [])
-            speech = f"{analysis}\n\n痛点: {', '.join(pain_points)}\n功能请求: {', '.join(features)}"
+            speech = f"{analysis}\n\n痛点: {format_list(pain_points)}\n功能请求: {format_list(features)}"
         
         elif agent_name == 'trend_discovery':
             demands = result.get('current_demands', [])
             priority = result.get('priority_analysis', [])
-            speech = f"{analysis}\n\n当前需求: {', '.join(demands)}\n优先级: {', '.join(priority)}"
+            speech = f"{analysis}\n\n当前需求: {format_list(demands)}\n优先级: {format_list(priority)}"
         
         else:
             speech = analysis

@@ -126,6 +126,15 @@ class TrendDiscoveryAgent:
 请从趋势发现的角度进行分析，评估热度、优先级和发展方向。"""
         
         try:
+            # 根据模型类型决定是否使用 JSON mode
+            # Thinking 模式的模型不支持 JSON mode
+            model_lower = self.model_name.lower()
+            is_thinking_model = any(keyword in model_lower for keyword in ['gemini', 'thinking', 'qwen3', 'deepseek-v3'])
+            
+            extra_params = {}
+            if not is_thinking_model:
+                extra_params['response_format'] = {"type": "json_object"}
+            
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[
@@ -133,15 +142,29 @@ class TrendDiscoveryAgent:
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.7,
-                response_format={"type": "json_object"}
+                **extra_params
             )
             
             import json
-            result = json.loads(response.choices[0].message.content)
+            content = response.choices[0].message.content
+            
+            # 尝试提取 JSON（处理可能返回的 markdown 格式）
+            if '```json' in content:
+                content = content.split('```json')[1].split('```')[0].strip()
+            elif '```' in content:
+                content = content.split('```')[1].split('```')[0].strip()
+            
+            # 清理可能的前后空白和非JSON字符
+            content = content.strip()
+            if not content:
+                raise ValueError("模型返回空内容")
+            
+            result = json.loads(content)
             return result
             
         except Exception as e:
             logger.error(f"TrendDiscoveryAgent: LLM调用失败 - {e}")
+            logger.debug(f"原始响应内容: {response.choices[0].message.content if 'response' in locals() else 'N/A'}")
             # 降级到规则分析
             return self._analyze_with_rules(query, signal_data)
     

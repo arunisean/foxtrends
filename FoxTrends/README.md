@@ -7,11 +7,13 @@ FoxTrends 是基于 BettaFish 舆情分析系统深度改造的多垂直社区�
 ## 核心特性
 
 - 🤖 **多 Agent 协作**: 继承 BettaFish 的 Agent 协作架构
-- 🌐 **多社区监控**: 支持 Reddit、GitHub Issues、HackerNews 等多个社区数据源
+- 🌐 **多社区监控**: 支持 Reddit、GitHub Issues、HackerNews、Discourse 等多个社区数据源
 - 📊 **趋势分析**: 时间序列分析、热度计算、趋势预测
-- 💬 **ForumEngine**: Agent 讨论和观点整合机制
+- 💬 **ForumEngine 2.0**: 增强的可视化论坛，支持实时讨论和 WebSocket 通信
 - 📈 **可视化 Dashboard**: 直观的需求分析和趋势展示
 - 🔄 **实时更新**: SocketIO 实时数据推送
+- 🖥️ **Windows 脚本支持**: 原生支持 PowerShell 和 CMD 启动脚本
+- ⚡ **智能速率限制**: 自动管理 API 并发请求，防止限流
 
 ## 系统架构
 
@@ -30,6 +32,39 @@ FoxTrends 包含以下核心组件：
 
 ### 展示层
 - **Dashboard**: Web 界面，提供可视化的需求分析和管理功能
+
+## 🆕 最新功能
+
+### ForumEngine 可视化系统
+
+FoxTrends 2.0 引入了全新的论坛可视化功能，提供直观的 Agent 讨论展示：
+
+- **实时讨论视图**: 通过 WebSocket 实时显示 Agent 讨论进度
+- **交互式时间线**: 可视化展示多轮讨论过程
+- **协作圆桌视图**: 模拟圆桌会议形式的观点碰撞展示
+- **数据导出**: 支持讨论记录导出为 JSON 格式
+
+**访问路径**: Dashboard → 选择需求 → "论坛可视化" 标签页
+
+### Agent 编排与速率限制
+
+新增智能 Agent 编排系统，优化 API 调用效率：
+
+- **并发控制**: AgentRateLimiter 自动管理并发请求数
+- **智能重试**: 自动处理 API 限流和失败重试
+- **模型兼容**: 支持思维模型（Gemini, Qwen3）的 JSON 模式
+
+### Windows 启动脚本
+
+提供三种启动方式适应不同场景：
+
+| 脚本 | 适用场景 |
+|------|----------|
+| `quick_start.bat` | CMD 命令行 |
+| `quick_start.ps1` | PowerShell（推荐） |
+| `quick_start.sh` | Linux/macOS |
+
+**停止脚本**: 对应 `quick_stop.*` 文件
 
 ## 快速开始
 
@@ -192,8 +227,9 @@ tail -f logs/forum.log
 
 ### 其他配置
 - **LLM Agent 配置**: 为每个 Agent 配置独立的 LLM API
-- **社区数据源**: Reddit、GitHub、HackerNews 等 API 配置
+- **社区数据源**: Reddit、GitHub、HackerNews、Discourse 等 API 配置
 - **爬取策略**: 爬取间隔、深度、数量等参数
+- **速率限制**: 配置并发数和请求间隔，防止 API 限流
 
 ## 技术栈
 

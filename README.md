@@ -42,10 +42,17 @@
 基于 BettaFish 架构深度改造的多垂直社区需求追踪平台，将舆情分析能力转化为需求发现和分析能力。
 
 **项目路径**: `/FoxTrends/`  
-**主要功能**: 社区监控（Reddit/GitHub/HackerNews）、需求信号提取、趋势分析  
+**主要功能**: 社区监控（Reddit/GitHub/HackerNews/Discourse等）、需求信号提取、趋势分析  
 **技术栈**: Python, Flask, UV Package Manager, Multi-Agent System  
 **文档**: [FoxTrends/README.md](./FoxTrends/README.md)  
-**状态**: 🚧 开发中（基于 BettaFish v1.2.1）
+**状态**: 🚀 持续开发中（基于 BettaFish v1.2.1）
+
+**最新更新 (v1.2.x)**:
+- ✨ **ForumEngine 2.0**: 论坛可视化和实时讨论系统，支持WebSocket实时更新
+- 🖥️ **Windows 脚本支持**: 新增 PowerShell 和 CMD 启动脚本
+- 🤖 **智能Agent编排**: AgentOrchestrator 实现多Agent协同工作
+- 📊 **高级报告生成**: 支持时间范围报告生成和多维度分析
+- ⚡ **API 速率限制**: AgentRateLimiter 防止API调用限流
 
 **关系说明**:
 - FoxTrends 复用了 BettaFish 的核心架构（ForumEngine、ReportEngine、配置系统）
